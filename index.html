@@ -16,7 +16,7 @@
 <!-- ⚡ ULTRA FAST BOOTSTRAP -->
 <script>
 window.FAST_CACHE = {
-    VERSION: 'v2026.2',
+    VERSION: 'v2026.3',
     PREFIX: 'bq_fast_',
     _mem: {},
     _key: function(k) { return this.PREFIX + k; },
@@ -53,174 +53,52 @@ window.fcSet = (k, d) => FAST_CACHE.set(k, d);
 // ============================================================
 window.REALTIME_SYNC = {
     channel: null,
-    listeners: {},
-    SYNC_KEYS: ['products', 'banners', 'homeCollections', 'faq', 'coupons', 'sizeCharts', 'pages', 'settings', 'reviews'],
-    
+    SYNC_KEYS: ['products', 'banners', 'homeCollections', 'faq', 'coupons', 'sizeCharts', 'pages', 'settings', 'reviews', 'categories'],
     init: function() {
-        // 1. BroadcastChannel — same browser, different tabs
         try {
             this.channel = new BroadcastChannel('bq_admin_sync');
             this.channel.onmessage = (e) => {
                 const { type, key, data } = e.data || {};
-                if (type === 'UPDATE' && key) {
-                    console.log('🔄 BroadcastChannel update:', key);
-                    this.handleUpdate(key, data);
-                } else if (type === 'CLEAR_ALL') {
-                    console.log('🔄 BroadcastChannel clear all');
-                    FAST_CACHE.clearAll();
-                    this.handleUpdate('__ALL__', null);
-                }
+                if (type === 'UPDATE' && key) this.handleUpdate(key, data);
             };
-            console.log('✅ BroadcastChannel ready');
-        } catch(e) { console.warn('BroadcastChannel not supported'); }
-        
-        // 2. Storage event — cross-tab fallback
+        } catch(e) {}
         window.addEventListener('storage', (e) => {
             if (!e.key || !e.key.startsWith(FAST_CACHE.PREFIX)) return;
             const rawKey = e.key.replace(FAST_CACHE.PREFIX, '');
             if (rawKey.startsWith('__sync_')) {
                 const syncKey = rawKey.replace('__sync_', '');
-                console.log('🔄 Storage event sync:', syncKey);
-                // Force refresh from localStorage
                 delete FAST_CACHE._mem[syncKey];
                 this.handleUpdate(syncKey, null);
             }
         });
-        
-        // 3. Visibility change — when user returns to tab
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                console.log('👁️ Tab visible — checking for updates');
-                this.checkForUpdates();
-            }
+            if (!document.hidden) this.checkForUpdates();
         });
     },
-    
     handleUpdate: function(key, data) {
-        // Directly apply updated data to UI
-        const s = window.settingsCache || {};
-        
-        if (key === 'products' || key === '__ALL__') {
-            const products = data || fcGet('products', []);
-            if (Array.isArray(products)) {
-                updateProductsData(products);
-                console.log('✅ Products updated:', products.length);
-            }
-        }
-        if (key === 'banners' || key === '__ALL__') {
-            const banners = data || fcGet('banners', []);
-            if (Array.isArray(banners)) {
-                window.bannersCache = banners;
-                renderBannerSlider();
-                console.log('✅ Banners updated:', banners.length);
-            }
-        }
-        if (key === 'homeCollections' || key === '__ALL__') {
-            const hc = data || fcGet('homeCollections', []);
-            if (Array.isArray(hc)) {
-                window.homeCollectionsCache = hc;
-                renderHomeCollections();
-                console.log('✅ Home Collections updated:', hc.length);
-            }
-        }
-        if (key === 'faq' || key === '__ALL__') {
-            const faq = data || fcGet('faq', []);
-            if (Array.isArray(faq)) {
-                window.faqCache = faq;
-                renderFAQ();
-                console.log('✅ FAQ updated:', faq.length);
-            }
-        }
-        if (key === 'coupons' || key === '__ALL__') {
-            const coupons = data || fcGet('coupons', []);
-            if (Array.isArray(coupons)) {
-                window.couponsCache = coupons;
-                renderHomeCoupons();
-                console.log('✅ Coupons updated:', coupons.length);
-            }
-        }
-        if (key === 'sizeCharts' || key === '__ALL__') {
-            const sc = data || fcGet('sizeCharts', {});
-            if (typeof sc === 'object') {
-                window.sizeChartsCache = sc;
-                console.log('✅ Size Charts updated');
-            }
-        }
-        if (key === 'pages' || key === '__ALL__') {
-            const pages = data || fcGet('pages', {});
-            if (typeof pages === 'object') {
-                window.pagesCache = pages;
-                const activePage = document.querySelector('.page-section.active-page');
-                if (activePage) {
-                    const pageId = activePage.id.replace('-section', '');
-                    if (['about','privacy','terms','return-policy','contact','track-order'].includes(pageId)) {
-                        applyPageContent(pageId);
-                    }
-                }
-                console.log('✅ Pages updated');
-            }
-        }
-        if (key === 'settings' || key === '__ALL__') {
-            const settings = data || fcGet('settings', null);
-            if (settings) {
-                window.settingsCache = { ...window.DEFAULT_SETTINGS, ...settings };
-                applySettingsToWebsite();
-                applyExtendedSettings();
-                console.log('✅ Settings updated');
-            }
-        }
-        if (key === 'reviews' || key === '__ALL__') {
-            const reviews = data || fcGet('reviews', {});
-            if (typeof reviews === 'object') {
-                window.reviewsCache = reviews;
-                // Refresh product details if open
-                const pd = document.getElementById('product-details-section');
-                if (pd && pd.classList.contains('active-page') && currentProductId) {
-                    openProductDetails(currentProductId);
-                }
-                console.log('✅ Reviews updated');
-            }
-        }
+        if (key === 'products' || key === '__ALL__') { updateProductsData(data || fcGet('products', [])); }
+        if (key === 'banners' || key === '__ALL__') { window.bannersCache = data || fcGet('banners', []); renderBannerSlider(); }
+        if (key === 'homeCollections' || key === '__ALL__') { window.homeCollectionsCache = data || fcGet('homeCollections', []); renderHomeCollections(); }
+        if (key === 'faq' || key === '__ALL__') { window.faqCache = data || fcGet('faq', []); renderFAQ(); }
+        if (key === 'coupons' || key === '__ALL__') { window.couponsCache = data || fcGet('coupons', []); renderHomeCoupons(); }
+        if (key === 'settings' || key === '__ALL__') { window.settingsCache = { ...window.DEFAULT_SETTINGS, ...(data || fcGet('settings', {})) }; applySettingsToWebsite(); applyExtendedSettings(); }
     },
-    
-    // Called when tab becomes visible — silent Firebase check
     checkForUpdates: async function() {
-        if (!window.db || !window.fbGetDocs) return;
+        if (!window.db || !window.fbGetDoc || !window.fbDoc) return;
         try {
-            // Check settings doc for lastUpdate timestamp
-            if (window.fbGetDoc && window.fbDoc) {
-                const snap = await window.fbGetDoc(window.fbDoc(window.db, 'settings', 'store'));
-                if (snap.exists()) {
-                    const data = snap.data();
-                    const remoteUpdate = data.lastUpdate || data.updatedAt || 0;
-                    const localUpdate = fcGet('_lastUpdate', 0);
-                    if (remoteUpdate && remoteUpdate !== localUpdate) {
-                        console.log('🔄 Remote update detected — syncing all');
-                        fcSet('_lastUpdate', remoteUpdate);
-                        window.preloadEverything();
-                    }
+            const snap = await window.fbGetDoc(window.fbDoc(window.db, 'settings', 'store'));
+            if (snap.exists()) {
+                const data = snap.data();
+                const remoteUpdate = data.updatedAt || 0;
+                const localUpdate = fcGet('_lastUpdate', 0);
+                if (remoteUpdate && remoteUpdate !== localUpdate) {
+                    fcSet('_lastUpdate', remoteUpdate);
+                    window.preloadEverything();
                 }
             }
         } catch(e) {}
-    },
-    
-    // Called from Admin panel — broadcast to all tabs
-    broadcast: function(key, data) {
-        if (this.channel) {
-            this.channel.postMessage({ type: 'UPDATE', key, data });
-        }
-        // Also set a sync flag in localStorage (cross-tab)
-        try {
-            localStorage.setItem(FAST_CACHE.PREFIX + '__sync_' + key, Date.now().toString());
-            setTimeout(() => localStorage.removeItem(FAST_CACHE.PREFIX + '__sync_' + key), 500);
-        } catch(e) {}
-    },
-    
-    broadcastClearAll: function() {
-        if (this.channel) this.channel.postMessage({ type: 'CLEAR_ALL' });
     }
 };
-window.syncBroadcast = (k, d) => REALTIME_SYNC.broadcast(k, d);
 </script>
 
 <style>
@@ -246,7 +124,6 @@ a { text-decoration: none; color: inherit; }
 .skeleton-shimmer { background: linear-gradient(90deg,rgba(223,177,91,.05) 25%,rgba(223,177,91,.15) 50%,rgba(223,177,91,.05) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 12px; }
 @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
 
-/* 🔴 Realtime sync toast */
 #sync-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; padding: 12px 24px; border-radius: 30px; z-index: 100000; font-weight: 700; font-size: 14px; box-shadow: 0 8px 25px rgba(34,197,94,.4); opacity: 0; transition: all .4s cubic-bezier(.22,1,.36,1); display: flex; align-items: center; gap: 8px; }
 #sync-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
@@ -650,10 +527,8 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </head>
 <body>
 
-<!-- SYNC TOAST (realtime update notification) -->
 <div id="sync-toast"><i class="fas fa-sync-alt fa-spin"></i> <span>Website update হয়েছে!</span></div>
 
-<!-- GLOBAL LOADER -->
 <div id="global-loader">
     <div class="loader-logo"><img src="https://i.ibb.co/zW2qGsmk/file-00000000e71881f4ada02fa6792ea317.png" alt="Loading"></div>
     <div class="loader-bar"><div class="loader-bar-inner"></div></div>
@@ -663,7 +538,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 <div id="reading-progress"></div>
 <button id="back-to-top" onclick="scrollToTop()"><i class="fas fa-arrow-up"></i></button>
 
-<!-- SIZE CHART MODAL -->
 <div class="size-chart-modal" id="size-chart-modal" onclick="closeSizeChart(event)">
     <div class="size-chart-box" onclick="event.stopPropagation()">
         <div class="size-chart-header">
@@ -688,7 +562,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
-<!-- VIDEO MODAL -->
 <div id="video-modal" onclick="closeVideoModal(event)">
     <div class="video-modal-content" onclick="event.stopPropagation()">
         <button class="video-modal-close" onclick="closeVideoModal()"><i class="fas fa-times"></i></button>
@@ -696,7 +569,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
-<!-- MINI CART -->
 <div id="mini-cart-overlay" onclick="closeMiniCart()"></div>
 <div id="mini-cart-sidebar">
     <div class="mini-cart-header">
@@ -713,13 +585,11 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
-<!-- IMAGE ZOOM -->
 <div id="image-modal" onclick="closeImageModal()">
     <button class="modal-close-btn" onclick="closeImageModal()">&times;</button>
     <img id="modal-zoomed-img" src="" alt="Zoomed">
 </div>
 
-<!-- SHARE MODAL -->
 <div id="share-modal" onclick="closeShareModal(event)">
     <div class="share-modal-content" onclick="event.stopPropagation()">
         <h3>🔗 Share This Product</h3>
@@ -733,13 +603,12 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
-<!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <h3 class="brand-title dynamic-store-name">Loading...</h3>
         <i class="fas fa-times close-sidebar" id="closeSidebar"></i>
     </div>
-    <ul class="sidebar-menu">
+    <ul class="sidebar-menu" id="sidebar-menu">
         <li><a href="#" onclick="switchTab('home')"><i class="fas fa-home"></i> Home</a></li>
         <li><a href="#" onclick="switchTab('shop')"><i class="fas fa-shopping-bag"></i> Shop</a></li>
         <li><a href="#" onclick="switchTab('wishlist')"><i class="fas fa-heart" style="color:#ff007f;"></i> Wishlist</a></li>
@@ -758,7 +627,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </div>
 <div class="overlay" id="overlay"></div>
 
-<!-- HEADER -->
 <header id="main-header">
     <div class="header-container">
         <div class="header-left">
@@ -784,7 +652,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </div>
 
 <div class="container">
-    <!-- HOME -->
     <div id="home-section" class="page-section active-page">
         <div class="welcome-section">
             <h1 class="welcome-title dynamic-welcome-text"></h1>
@@ -806,7 +673,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div id="home-collections-container"></div>
     </div>
 
-    <!-- SHOP -->
     <div id="shop-section" class="page-section">
         <h2 id="shop-title" style="margin-bottom: 5px;">Shop All Collections</h2>
         <p id="shop-desc" style="color: var(--text-muted); margin-bottom: 15px;">Explore our exclusive range of premium hijabs, burqas, and abayas.</p>
@@ -821,7 +687,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div class="pagination-wrap" id="pagination-wrap" style="display:none;"></div>
     </div>
 
-    <!-- WISHLIST -->
     <div id="wishlist-section" class="page-section">
         <div class="wishlist-header">
             <h2><i class="fas fa-heart" style="color:#ff007f;"></i> My Wishlist <span class="wishlist-count" id="wishlist-page-count">0</span></h2>
@@ -837,7 +702,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div id="wishlist-container"></div>
     </div>
 
-    <!-- FAQ -->
     <div id="faq-section" class="page-section">
         <div class="faq-hero">
             <div class="faq-hero-icon"><i class="fas fa-question"></i></div>
@@ -864,27 +728,20 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         </div>
     </div>
 
-    <!-- PRODUCT DETAILS -->
     <div id="product-details-section" class="page-section">
         <div class="product-details-container" id="product-details-content"></div>
     </div>
 
-    <!-- ABOUT -->
     <div id="about-section" class="page-section"><div class="page-content-box" id="about-content-box"></div></div>
-    <!-- PRIVACY -->
     <div id="privacy-section" class="page-section"><div class="page-content-box" id="privacy-content-box"></div></div>
-    <!-- TERMS -->
     <div id="terms-section" class="page-section"><div class="page-content-box" id="terms-content-box"></div></div>
-    <!-- RETURN POLICY -->
     <div id="return-policy-section" class="page-section"><div class="page-content-box" id="return-policy-content-box"></div></div>
 
-    <!-- CONTACT -->
     <div id="contact-section" class="page-section">
         <div class="page-content-box" id="contact-content-box"></div>
         <div class="premium-contact-grid dynamic-contact-icons-container" style="margin-top: 25px;"></div>
     </div>
 
-    <!-- TRACK ORDER -->
     <div id="track-order-section" class="page-section">
         <div style="background: linear-gradient(135deg, rgba(223,177,91,.15), rgba(223,177,91,.03)); border: 1px solid var(--gold-color); border-radius: 14px; padding: 25px 20px; margin-bottom: 25px;">
             <h3 style="font-family: 'Playfair Display', serif; color: var(--gold-color); font-size: 18px; margin-bottom: 15px; text-align: center;">📦 অর্ডার ট্র্যাক করুন</h3>
@@ -900,14 +757,12 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div class="page-content-box" id="track-order-content-box"></div>
     </div>
 
-    <!-- CART -->
     <div id="cart-section" class="page-section">
         <h2 style="margin-bottom: 15px;"><i class="fas fa-shopping-cart"></i> Your Shopping Cart & Checkout</h2>
         <div id="cart-items-container" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 25px 20px; border-radius: 12px; margin-top: 20px; text-align: left;"></div>
     </div>
 </div>
 
-<!-- FOOTER -->
 <footer class="site-footer">
     <div class="footer-container">
         <div class="footer-section">
@@ -971,10 +826,9 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 
 <div id="custom-toast"><div class="toast-content"><span class="toast-icon">✨</span><p id="toast-message">Successfully added to cart!</p></div></div>
 
-<!-- ⚡ FIREBASE MODULE + REALTIME SYNC -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { initializeFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBz6nILSzcvSofF9iyPt-h3ffseEXTwgnA",
@@ -986,7 +840,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 window.db = db;
 window.fbAddDoc = addDoc;
 window.fbCollection = collection;
@@ -1006,15 +860,12 @@ window.DEFAULT_SETTINGS = {
     whatsapp: '8801832140613',
     email: 'burqabazaarandboutiques@gmail.com',
     address: 'ফেনী সওদাগর পট্টি, সওদাগর টাওয়ার, ২য় তলা, দোকান নং ০৩',
-    bkash: '01832140613', nagad: '01832140613',
     deliveryInside: 60, deliveryOutside: 130,
-    facebook: '', instagram: '', youtube: '', tiktok: '',
     logoUrl: 'https://i.ibb.co/zW2qGsmk/file-00000000e71881f4ada02fa6792ea317.png',
     copyrightText: '© 2026 Burqa Bazar and Boutiques. All rights reserved.',
     contactIcons: [], paymentMethods: [], couriers: []
 };
 
-// ⚡ Silent loaders — no UI blocking
 async function loadCollection(colName, docId, cacheKey) {
     try {
         let data;
@@ -1027,6 +878,10 @@ async function loadCollection(colName, docId, cacheKey) {
                 window.settingsCache = merged;
                 applySettingsToWebsite();
                 applyExtendedSettings();
+            }
+            if (data && cacheKey === 'categories') {
+                window.categoriesCache = data.list || [];
+                renderDynamicCategories();
             }
         } else {
             const snap = await getDocs(collection(db, colName));
@@ -1067,6 +922,7 @@ async function loadPages() {
 window.preloadEverything = async function() {
     Promise.allSettled([
         loadCollection('settings', 'store', 'settings'),
+        loadCollection('settings', 'categories', 'categories'),
         loadCollection('products', null, 'products'),
         loadCollection('banners', null, 'banners'),
         loadCollection('homeCollections', null, 'homeCollections'),
@@ -1078,41 +934,44 @@ window.preloadEverything = async function() {
     ]).then(() => console.log('✅ Background sync complete'));
 };
 
-// ⚡ INSTANT LOAD FROM CACHE
 window.instantLoadFromCache = function() {
     const cachedSettings = fcGet('settings', null);
-    if (cachedSettings) {
-        window.settingsCache = { ...window.DEFAULT_SETTINGS, ...cachedSettings };
-    } else {
-        window.settingsCache = { ...window.DEFAULT_SETTINGS };
-    }
+    if (cachedSettings) window.settingsCache = { ...window.DEFAULT_SETTINGS, ...cachedSettings };
+    else window.settingsCache = { ...window.DEFAULT_SETTINGS };
     applySettingsToWebsite();
     applyExtendedSettings();
     
     const cachedProducts = fcGet('products', null);
     if (cachedProducts && Array.isArray(cachedProducts)) updateProductsData(cachedProducts);
+    
     const cachedBanners = fcGet('banners', null);
     if (cachedBanners && Array.isArray(cachedBanners)) { window.bannersCache = cachedBanners; renderBannerSlider(); }
+    
     const cachedHC = fcGet('homeCollections', null);
     if (cachedHC && Array.isArray(cachedHC)) { window.homeCollectionsCache = cachedHC; renderHomeCollections(); }
+    
     const cachedFaq = fcGet('faq', null);
     if (cachedFaq && Array.isArray(cachedFaq)) { window.faqCache = cachedFaq; renderFAQ(); }
+    
     const cachedPages = fcGet('pages', null);
     if (cachedPages && typeof cachedPages === 'object') window.pagesCache = cachedPages;
+    
     const cachedCoupons = fcGet('coupons', null);
     if (cachedCoupons && Array.isArray(cachedCoupons)) { window.couponsCache = cachedCoupons; renderHomeCoupons(); }
+    
     const cachedSC = fcGet('sizeCharts', null);
     if (cachedSC && typeof cachedSC === 'object') window.sizeChartsCache = cachedSC;
+    
     const cachedReviews = fcGet('reviews', null);
     if (cachedReviews && typeof cachedReviews === 'object') window.reviewsCache = cachedReviews;
+    
+    const cachedCats = fcGet('categories', null);
+    if (cachedCats && Array.isArray(cachedCats)) { window.categoriesCache = cachedCats; renderDynamicCategories(); }
 };
 
-// 🔴 REALTIME LISTENERS — Admin update = instant website update
 window.attachRealtimeListeners = function() {
     if (!window.fbOnSnapshot) { console.warn('onSnapshot not available'); return; }
-    console.log('🔴 Attaching realtime listeners...');
     
-    // 1. Products realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'products'), (snap) => {
             const arr = [];
@@ -1121,12 +980,9 @@ window.attachRealtimeListeners = function() {
             fcSet('products', arr);
             window.productsCache = arr;
             updateProductsData(arr);
-            console.log('🔴 Products live update:', arr.length);
-            window.showSyncToast();
         }, (err) => console.warn('Products listener error:', err.message));
     } catch(e) {}
     
-    // 2. Banners realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'banners'), (snap) => {
             const arr = [];
@@ -1136,12 +992,9 @@ window.attachRealtimeListeners = function() {
             fcSet('banners', active);
             window.bannersCache = active;
             renderBannerSlider();
-            console.log('🔴 Banners live update');
-            window.showSyncToast();
         }, (err) => console.warn('Banners listener error:', err.message));
     } catch(e) {}
     
-    // 3. Home Collections realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'homeCollections'), (snap) => {
             const arr = [];
@@ -1150,12 +1003,9 @@ window.attachRealtimeListeners = function() {
             fcSet('homeCollections', active);
             window.homeCollectionsCache = active;
             renderHomeCollections();
-            console.log('🔴 Home collections live update');
-            window.showSyncToast();
         }, (err) => console.warn('HomeCollections listener error:', err.message));
     } catch(e) {}
     
-    // 4. FAQ realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'faq'), (snap) => {
             const arr = [];
@@ -1164,12 +1014,9 @@ window.attachRealtimeListeners = function() {
             fcSet('faq', arr);
             window.faqCache = arr;
             renderFAQ();
-            console.log('🔴 FAQ live update');
-            window.showSyncToast();
         }, (err) => console.warn('FAQ listener error:', err.message));
     } catch(e) {}
     
-    // 5. Coupons realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'coupons'), (snap) => {
             const arr = [];
@@ -1177,12 +1024,9 @@ window.attachRealtimeListeners = function() {
             fcSet('coupons', arr);
             window.couponsCache = arr;
             renderHomeCoupons();
-            console.log('🔴 Coupons live update');
-            window.showSyncToast();
         }, (err) => console.warn('Coupons listener error:', err.message));
     } catch(e) {}
     
-    // 6. Settings realtime
     try {
         window.fbOnSnapshot(window.fbDoc(window.db, 'settings', 'store'), (snap) => {
             if (snap.exists()) {
@@ -1192,13 +1036,20 @@ window.attachRealtimeListeners = function() {
                 window.settingsCache = merged;
                 applySettingsToWebsite();
                 applyExtendedSettings();
-                console.log('🔴 Settings live update');
-                window.showSyncToast();
             }
         }, (err) => console.warn('Settings listener error:', err.message));
     } catch(e) {}
+
+    try {
+        window.fbOnSnapshot(window.fbDoc(window.db, 'settings', 'categories'), (snap) => {
+            if (snap.exists() && Array.isArray(snap.data().list)) {
+                window.categoriesCache = snap.data().list;
+                fcSet('categories', window.categoriesCache);
+                renderDynamicCategories();
+            }
+        }, (err) => console.warn('Categories listener error:', err.message));
+    } catch(e) {}
     
-    // 7. Pages realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'pages'), (snap) => {
             const obj = {};
@@ -1212,23 +1063,18 @@ window.attachRealtimeListeners = function() {
                     applyPageContent(pageId);
                 }
             }
-            console.log('🔴 Pages live update');
-            window.showSyncToast();
         }, (err) => console.warn('Pages listener error:', err.message));
     } catch(e) {}
     
-    // 8. Size Charts realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'sizeCharts'), (snap) => {
             const obj = {};
             snap.forEach(d => { obj[d.id] = d.data(); });
             fcSet('sizeCharts', obj);
             window.sizeChartsCache = obj;
-            console.log('🔴 Size charts live update');
         }, (err) => console.warn('SizeCharts listener error:', err.message));
     } catch(e) {}
     
-    // 9. Reviews realtime (all reviews)
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'reviews'), (snap) => {
             const obj = {};
@@ -1241,28 +1087,29 @@ window.attachRealtimeListeners = function() {
             });
             fcSet('reviews', obj);
             window.reviewsCache = obj;
-            // Refresh open product details
             const pd = document.getElementById('product-details-section');
             if (pd && pd.classList.contains('active-page') && currentProductId) {
                 openProductDetails(currentProductId);
             }
-            console.log('🔴 Reviews live update');
         }, (err) => console.warn('Reviews listener error:', err.message));
     } catch(e) {}
-    
-    console.log('✅ All realtime listeners attached');
+
+    // 🔥 NEW: Listen to Site Notifications from Admin Panel
+    try {
+        window.fbOnSnapshot(window.fbCollection(window.db, 'site_notifications'), (snap) => {
+            snap.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const data = change.doc.data();
+                    // Only show if it's very recent (within last 30 seconds) to avoid spamming old notifications on load
+                    if (data.createdAt && (Date.now() - data.createdAt < 30000)) {
+                        window.showToast(data.message || 'নতুন আপডেট এসেছে!');
+                    }
+                }
+            });
+        }, (err) => console.warn('Site Notifications listener error:', err.message));
+    } catch(e) {}
 };
 
-// 🔔 Sync toast notification
-window.showSyncToast = function() {
-    const toast = document.getElementById('sync-toast');
-    if (!toast) return;
-    toast.classList.add('show');
-    clearTimeout(window._syncToastTimer);
-    window._syncToastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
-};
-
-// ⚡ BOOT
 window.bootWebsite = function() {
     const t0 = performance.now();
     instantLoadFromCache();
@@ -1273,12 +1120,9 @@ window.bootWebsite = function() {
         const loader = document.getElementById('global-loader');
         if (loader) loader.classList.add('hidden');
     }, 150);
-    document.body.classList.add('content-ready');
     
-    // Background sync
     setTimeout(() => {
         window.preloadEverything();
-        // Attach realtime listeners after initial load
         setTimeout(() => window.attachRealtimeListeners(), 1500);
     }, 100);
 };
@@ -1292,11 +1136,7 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- ⚡ MAIN SCRIPT -->
 <script>
-// ============================================================
-// GLOBAL STATE
-// ============================================================
 let productsData = [];
 let cart = JSON.parse(localStorage.getItem('burqa_cart')) || [];
 let wishlist = JSON.parse(localStorage.getItem('burqa_wishlist')) || [];
@@ -1327,9 +1167,6 @@ let bannerAutoSlideTimer = null;
 const BANNER_AUTO_SLIDE_MS = 5000;
 let bannerSwipeStartX = 0, bannerSwipeEndX = 0, bannerSwipeAttached = false;
 
-// ============================================================
-// URL EXTRACTOR
-// ============================================================
 function extractUrl(str) {
     if (!str || typeof str !== 'string') return '';
     const t = str.trim();
@@ -1339,9 +1176,6 @@ function extractUrl(str) {
     return '';
 }
 
-// ============================================================
-// APPLY SETTINGS
-// ============================================================
 window.applySettingsToWebsite = function() {
     const s = window.settingsCache || window.DEFAULT_SETTINGS;
     if (s.pageTitle) document.title = s.pageTitle;
@@ -1411,9 +1245,21 @@ window.renderContactIconsOnWebsite = function() {
     containers.forEach(container => { container.innerHTML = html; });
 };
 
-// ============================================================
-// PRODUCTS
-// ============================================================
+window.renderDynamicCategories = function() {
+    const container = document.getElementById('category-filter-bar');
+    if (!container) return;
+    let cats = window.categoriesCache || ['Hijab Collection', 'Burqa Collection', 'Abaya Collection'];
+    let html = `<button class="filter-chip active" data-cat="all" onclick="filterCategory('all')"><i class="fas fa-th-large"></i> All <span class="count" id="count-all">0</span></button>`;
+    cats.forEach((cat, i) => {
+        let icon = '📁';
+        if(cat.toLowerCase().includes('hijab')) icon = '🌷';
+        else if(cat.toLowerCase().includes('burqa')) icon = '🖤';
+        else if(cat.toLowerCase().includes('abaya')) icon = '🤍';
+        html += `<button class="filter-chip" data-cat="${cat}" onclick="filterCategory('${cat}')">${icon} ${cat} <span class="count" id="count-cat-${i}">0</span></button>`;
+    });
+    container.innerHTML = html;
+};
+
 window.updateProductsData = function(firebaseProducts) {
     if (!Array.isArray(firebaseProducts)) return;
     productsData = firebaseProducts.map(function(p) {
@@ -1449,11 +1295,17 @@ window.updateProductsData = function(firebaseProducts) {
 
 function updateFilterCounts() {
     if (!Array.isArray(productsData)) return;
+    let cats = window.categoriesCache || ['Hijab Collection', 'Burqa Collection', 'Abaya Collection'];
     const el = (id) => document.getElementById(id);
     if (el('count-all')) el('count-all').textContent = productsData.length;
-    if (el('count-hijab')) el('count-hijab').textContent = productsData.filter(p => p.category === 'Hijab Collection').length;
-    if (el('count-burqa')) el('count-burqa').textContent = productsData.filter(p => p.category === 'Burqa Collection').length;
-    if (el('count-abaya')) el('count-abaya').textContent = productsData.filter(p => p.category === 'Abaya Collection').length;
+    cats.forEach((cat, i) => {
+        const cnt = productsData.filter(p => p.category === cat).length;
+        const e = el('count-cat-' + i);
+        if (e) e.textContent = cnt;
+        if (cat === 'Hijab Collection' && el('count-hijab')) el('count-hijab').textContent = cnt;
+        if (cat === 'Burqa Collection' && el('count-burqa')) el('count-burqa').textContent = cnt;
+        if (cat === 'Abaya Collection' && el('count-abaya')) el('count-abaya').textContent = cnt;
+    });
 }
 
 function renderProductsGrid(itemsToRender) {
@@ -1552,9 +1404,6 @@ window.filterProductsBySearch = function() {
     window.switchTab('shop');
 };
 
-// ============================================================
-// WISHLIST
-// ============================================================
 function updateWishlistBadge() {
     const badge = document.getElementById('wishlist-count');
     if (badge) { badge.textContent = wishlist.length; badge.style.display = wishlist.length > 0 ? 'block' : 'none'; }
@@ -1630,9 +1479,6 @@ window.clearAllWishlist = function() {
     window.showToast('🗑️ Wishlist খালি হয়েছে');
 };
 
-// ============================================================
-// BANNER SLIDER
-// ============================================================
 window.renderBannerSlider = function() {
     const slider = document.getElementById('promo-banner-slider');
     const track = document.getElementById('banner-track');
@@ -1699,9 +1545,6 @@ window.handleBannerClick = function(idx) {
     if (type === 'tab') { window.switchTab(link.replace('tab:', '').trim()); return; }
 };
 
-// ============================================================
-// HOME COLLECTIONS
-// ============================================================
 window.renderHomeCollections = function() {
     const container = document.getElementById('home-collections-container');
     const header = document.getElementById('home-collections-header');
@@ -1719,9 +1562,6 @@ window.renderHomeCollections = function() {
     container.innerHTML = html;
 };
 
-// ============================================================
-// COUPONS
-// ============================================================
 function getUsedCouponsLocal() { return JSON.parse(localStorage.getItem('burqa_used_coupons')) || []; }
 function markCouponUsedLocal(code) { const used = getUsedCouponsLocal(); if (!used.includes(code.toUpperCase())) { used.push(code.toUpperCase()); localStorage.setItem('burqa_used_coupons', JSON.stringify(used)); } }
 
@@ -1837,9 +1677,6 @@ window.applyCoupon = async function() {
 function resetCouponBtn(btn) { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Apply'; } }
 window.removeCoupon = function() { appliedCoupon = null; discountAmount = 0; updateCartUI(); window.showToast('🗑️ কুপন সরানো হয়েছে'); };
 
-// ============================================================
-// FAQ
-// ============================================================
 window.renderFAQ = function() {
     const container = document.getElementById('faq-list');
     if (!container) return;
@@ -1872,9 +1709,6 @@ window.filterFAQ = function(cat) {
     window.renderFAQ();
 };
 
-// ============================================================
-// PAGES
-// ============================================================
 window.applyPageContent = function(pageId) {
     const container = document.getElementById(pageId + '-content-box');
     if (!container) return;
@@ -1905,9 +1739,6 @@ window.renderCouriersTrackPage = function() {
     container.innerHTML = html;
 };
 
-// ============================================================
-// CUSTOMER ORDER TRACKING
-// ============================================================
 window.trackCustomerOrder = async function() {
     const input = document.getElementById('order-track-input');
     const result = document.getElementById('order-track-result');
@@ -1966,9 +1797,6 @@ window.trackCustomerOrder = async function() {
     }
 };
 
-// ============================================================
-// TOAST / CART UI
-// ============================================================
 window.showToast = function(message) {
     const toast = document.getElementById('custom-toast');
     const toastMsg = document.getElementById('toast-message');
@@ -2043,9 +1871,6 @@ window.updateCartUI = function() {
     window.handlePaymentChange();
 };
 
-// ============================================================
-// PAYMENT METHODS
-// ============================================================
 window.renderPaymentMethods = function() {
     const container = document.querySelector('.payment-methods-box');
     if (!container) return;
@@ -2124,9 +1949,6 @@ window.increaseQty = function(index) { cart[index].quantity += 1; localStorage.s
 window.decreaseQty = function(index) { if (cart[index].quantity > 1) cart[index].quantity -= 1; else cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.removeFromCart = function(index) { const removed = cart[index].name; cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.showToast(removed + ' সরানো হয়েছে!'); };
 
-// ============================================================
-// MINI CART
-// ============================================================
 window.openMiniCart = function() { window.renderMiniCart(); document.getElementById('mini-cart-overlay').classList.add('active'); document.getElementById('mini-cart-sidebar').classList.add('active'); document.body.style.overflow = 'hidden'; };
 window.closeMiniCart = function() { document.getElementById('mini-cart-overlay').classList.remove('active'); document.getElementById('mini-cart-sidebar').classList.remove('active'); document.body.style.overflow = ''; };
 window.renderMiniCart = function() {
@@ -2149,9 +1971,6 @@ window.renderMiniCart = function() {
     if (subtotalEl) subtotalEl.textContent = '৳ ' + subtotal;
 };
 
-// ============================================================
-// NEWSLETTER
-// ============================================================
 window.subscribeNewsletter = async function(event) {
     event.preventDefault();
     if (isSubscribing) return;
@@ -2181,9 +2000,6 @@ window.subscribeNewsletter = async function(event) {
 
 window.socialPlaceholder = function(event, platform) { event.preventDefault(); window.showToast('⏳ ' + platform + ' link শীঘ্রই আসছে!'); };
 
-// ============================================================
-// SIDEBAR + THEME
-// ============================================================
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const openSidebar = document.getElementById('openSidebar');
@@ -2214,9 +2030,6 @@ window.toggleTheme = function() {
 if (headerThemeToggleBtn) headerThemeToggleBtn.addEventListener('click', window.toggleTheme);
 if (sidebarThemeToggleBtn) sidebarThemeToggleBtn.addEventListener('click', window.toggleTheme);
 
-// ============================================================
-// TAB SWITCH
-// ============================================================
 window.switchTab = function(tabName) {
     const sections = ['home', 'shop', 'wishlist', 'faq', 'product-details', 'about', 'privacy', 'terms', 'return-policy', 'contact', 'track-order', 'cart'];
     sections.forEach(sec => { const el = document.getElementById(sec + '-section'); if (el) el.classList.remove('active-page'); });
@@ -2246,9 +2059,6 @@ window.quickAddToCart = function(productId) {
     window.showToast('📝 Size ও Color নির্বাচন করুন');
 };
 
-// ============================================================
-// PRODUCT DETAILS + GALLERY
-// ============================================================
 function setGalleryImages(images, mainImage) {
     let safeImages = [];
     if (Array.isArray(images) && images.length > 0) safeImages = images.map(i => extractUrl(i)).filter(i => i && i.length > 5);
@@ -2344,8 +2154,17 @@ window.openProductDetails = function(productId) {
     else if (product.stock !== undefined && product.stock > 0 && product.stock <= 5) stockLineHtml = `<div style="margin-top: 10px; padding: 10px 15px; background: rgba(245,158,11,.15); border: 1px solid #f59e0b; border-radius: 8px; color: #fcd34d; font-size: 13px; font-weight: 600;"><i class="fas fa-fire"></i> মাত্র ${product.stock}টি স্টকে!</div>`;
     const ratingSectionHtml = renderRatingSection(product.id);
     const relatedHtml = renderRelatedProducts(product.id);
+    
+    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
+    let contactButtonsHtml = `
+        <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+            <a href="https://wa.me/${s.whatsapp || ''}?text=${encodeURIComponent('আমি এই প্রোডাক্টটি সম্পর্কে জানতে চাই: ' + product.name)}" target="_blank" style="flex: 1; min-width: 140px; background: #25d366; color: #fff; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fab fa-whatsapp" style="font-size: 18px;"></i> WhatsApp</a>
+            <a href="tel:${s.phone || ''}" style="flex: 1; min-width: 140px; background: var(--gold-color); color: #0b0b0d; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fas fa-phone" style="font-size: 18px;"></i> Call Now</a>
+        </div>
+    `;
+
     const detailsContainer = document.getElementById('product-details-content');
-    detailsContainer.innerHTML = `<button onclick="switchTab('shop')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 15px;"><i class="fas fa-arrow-left"></i> Back to Shop</button>${galleryHtml}<span class="product-category-tag">${product.category}</span><div class="details-title">${product.name} ${badgeHtml}</div>${ratingLineHtml}<div class="details-price" style="margin-top: 10px;">${priceDisplay}</div>${stockLineHtml}${videoBtnHtml}${sizeHtml}${colorHtml}<div class="selection-warning" id="selection-warning">⚠️ Size এবং Color নির্বাচন করুন</div><div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px; flex-wrap: wrap;">${isOOS ? `<button disabled style="flex: 1; min-width: 180px; background: #666; color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: not-allowed;"><i class="fas fa-ban"></i> Out of Stock</button>` : `<button onclick="addToCartFromDetails()" style="flex: 1; min-width: 180px; background: var(--gold-color); color: #0b0b0d; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;"><i class="fas fa-shopping-bag"></i> Add to Cart</button>`}<button onclick="toggleWishlist(${product.id}, event)" class="wishlist-btn ${isWishlisted ? 'active' : ''}" data-pid="${product.id}" style="position: static; width: 50px; height: 50px; background: ${isWishlisted ? '#ff007f' : 'var(--bg-color)'}; border: 1.5px solid ${isWishlisted ? '#ff007f' : 'var(--border-color)'}; color: ${isWishlisted ? '#fff' : 'var(--text-color)'}; border-radius: 8px; font-size: 18px;"><i class="fas fa-heart"></i></button><button onclick="openShareModal(${product.id}, event)" class="share-btn" style="width: 50px; height: 50px; justify-content: center; padding: 0;"><i class="fas fa-share-alt"></i></button></div><div class="details-desc-box">${product.fullDescription}</div>${ratingSectionHtml}${relatedHtml}`;
+    detailsContainer.innerHTML = `<button onclick="switchTab('shop')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 15px;"><i class="fas fa-arrow-left"></i> Back to Shop</button>${galleryHtml}<span class="product-category-tag">${product.category}</span><div class="details-title">${product.name} ${badgeHtml}</div>${ratingLineHtml}<div class="details-price" style="margin-top: 10px;">${priceDisplay}</div>${stockLineHtml}${videoBtnHtml}${sizeHtml}${colorHtml}<div class="selection-warning" id="selection-warning">⚠️ Size এবং Color নির্বাচন করুন</div><div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px; flex-wrap: wrap;">${isOOS ? `<button disabled style="flex: 1; min-width: 180px; background: #666; color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: not-allowed;"><i class="fas fa-ban"></i> Out of Stock</button>` : `<button onclick="addToCartFromDetails()" style="flex: 1; min-width: 180px; background: var(--gold-color); color: #0b0b0d; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;"><i class="fas fa-shopping-bag"></i> Add to Cart</button>`}<button onclick="toggleWishlist(${product.id}, event)" class="wishlist-btn ${isWishlisted ? 'active' : ''}" data-pid="${product.id}" style="position: static; width: 50px; height: 50px; background: ${isWishlisted ? '#ff007f' : 'var(--bg-color)'}; border: 1.5px solid ${isWishlisted ? '#ff007f' : 'var(--border-color)'}; color: ${isWishlisted ? '#fff' : 'var(--text-color)'}; border-radius: 8px; font-size: 18px;"><i class="fas fa-heart"></i></button><button onclick="openShareModal(${product.id}, event)" class="share-btn" style="width: 50px; height: 50px; justify-content: center; padding: 0;"><i class="fas fa-share-alt"></i></button></div>${contactButtonsHtml}<div class="details-desc-box">${product.fullDescription}</div>${ratingSectionHtml}${relatedHtml}`;
     window.switchTab('product-details');
     window.scrollTo(0, 0);
     setTimeout(attachGallerySwipeHandlers, 50);
@@ -2403,9 +2222,6 @@ function addToCartWithOptions(product, size, color) {
     setTimeout(() => window.renderMiniCart(), 100);
 }
 
-// ============================================================
-// VIDEO / IMAGE MODAL
-// ============================================================
 window.openVideoModal = function(videoUrl) {
     const embedUrl = convertToEmbedUrl(videoUrl);
     if (!embedUrl) { window.showToast('❌ ভিডিও লিংক সাপোর্টেড নয়'); return; }
@@ -2436,9 +2252,6 @@ function convertToEmbedUrl(url) {
 window.openImageModal = function(imgSrc) { const modal = document.getElementById('image-modal'); const modalImg = document.getElementById('modal-zoomed-img'); modalImg.src = imgSrc; modal.classList.add('active'); };
 window.closeImageModal = function() { document.getElementById('image-modal').classList.remove('active'); };
 
-// ============================================================
-// SHARE
-// ============================================================
 window.openShareModal = function(productId, event) {
     if (event) { event.stopPropagation(); event.preventDefault(); }
     const product = productsData.find(p => p.id === productId);
@@ -2461,9 +2274,6 @@ window.copyProductLink = function() {
     navigator.clipboard.writeText(shareUrl).then(() => { window.showToast('✅ Link কপি হয়েছে!'); window.closeShareModal(); }).catch(() => window.showToast('❌ কপি করা যায়নি'));
 };
 
-// ============================================================
-// REVIEWS
-// ============================================================
 function getProductReviews(productId) { if (!window.reviewsCache) return []; return window.reviewsCache[productId] || []; }
 
 async function saveProductReviewToFirestore(productId, review) {
@@ -2565,9 +2375,6 @@ function renderRelatedProducts(productId) {
     return html;
 }
 
-// ============================================================
-// SIZE CHART
-// ============================================================
 function getSizeChartData(category) {
     const charts = window.sizeChartsCache || {};
     return charts[category] || charts['default'] || { title: 'Size Guide', rows: [] };
@@ -2617,9 +2424,6 @@ function renderSizeChartTable() {
     table.innerHTML = html;
 }
 
-// ============================================================
-// ORDER SUBMIT
-// ============================================================
 function generateOrderId() {
     const now = new Date();
     const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -2690,9 +2494,6 @@ window.submitOrder = async function(event) {
     setTimeout(() => { window.open('https://wa.me/' + ownerWhatsAppNumber + '?text=' + whatsappMessage, '_blank'); window.switchTab('home'); }, 1500);
 };
 
-// ============================================================
-// BACK TO TOP + SCROLL
-// ============================================================
 window.scrollToTop = function() { window.scrollTo({ top: 0, behavior: 'smooth' }); };
 let scrollTick = false;
 window.addEventListener('scroll', () => {
@@ -2709,9 +2510,6 @@ window.addEventListener('scroll', () => {
     });
 });
 
-// ============================================================
-// URL HANDLING
-// ============================================================
 function handleInitialURL() {
     const params = new URLSearchParams(window.location.search);
     const productId = params.get('product');
@@ -2720,16 +2518,10 @@ function handleInitialURL() {
     if (hash && ['shop','wishlist','faq','about','privacy','terms','return-policy','contact','track-order','cart'].includes(hash)) window.switchTab(hash);
 }
 
-// ============================================================
-// ESC KEY
-// ============================================================
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { window.closeMiniCart(); window.closeShareModal(); window.closeImageModal(); window.closeSizeChart(); window.closeVideoModal(); }
 });
 
-// ============================================================
-// INIT
-// ============================================================
 window.addEventListener('DOMContentLoaded', function() {
     window.updateCartUI();
     updateWishlistBadge();
