@@ -1894,17 +1894,78 @@ window.renderPaymentMethods = function() {
     });
     container.innerHTML = html;
 };
-
 function renderAllPaymentInstructionBoxes(deliveryCharge, totalAmount, s) {
-    return `
-        <div class="instruction-box" id="cod-instruction-box"><h4><i class="fas fa-info-circle"></i> ক্যাশ অন ডেলিভারি:</h4><p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span id="cod-amount-text">${deliveryCharge}</span></strong></p><div style="font-size: 13px; font-weight: 600; margin-top: 6px;">👉 বিকাশ নম্বর:</div><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.bkash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.bkash || ''}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর *</label><input type="tel" id="cod-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="cod-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="bkash-instruction-box"><h4><i class="fas fa-shield-alt"></i> বিকাশ পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="bkash-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.bkash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.bkash || ''}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার বিকাশ নম্বর *</label><input type="tel" id="bkash-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="bkash-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="nagad-instruction-box"><h4><i class="fas fa-wallet"></i> নগদ পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="nagad-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.nagad || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.nagad || ''}', 'Nagad')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার নগদ নম্বর *</label><input type="tel" id="nagad-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="nagad-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="upay-instruction-box"><h4><i class="fas fa-mobile-alt"></i> Upay পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="upay-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="upay-number-display">${s.upay || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('upay-number-display').textContent, 'Upay')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার Upay নম্বর *</label><input type="tel" id="upay-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="upay-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="rocket-instruction-box"><h4><i class="fas fa-rocket"></i> Rocket পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="rocket-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="rocket-number-display">${s.rocket || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('rocket-number-display').textContent, 'Rocket')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার Rocket নম্বর *</label><input type="tel" id="rocket-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="rocket-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="surecash-instruction-box"><h4><i class="fas fa-money-check-alt"></i> SureCash পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="surecash-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="surecash-number-display">${s.surecash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('surecash-number-display').textContent, 'SureCash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার SureCash নম্বর *</label><input type="tel" id="surecash-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="surecash-trx-input" placeholder="9L8A7B6C"></div></div>
-        <div class="instruction-box" id="bank-instruction-box"><h4><i class="fas fa-university"></i> Bank Transfer:</h4><p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p><div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">👤 Account Name:</strong> ${s.bankAccountName || ''}<br><strong style="color: var(--gold-color);">🔢 Account Number:</strong> ${s.bankAccountNumber || ''}<br><strong style="color: var(--gold-color);">🏢 Branch:</strong> ${s.bankBranch || ''}</div><div class="form-group" style="margin-top: 15px;"><label>আপনার অ্যাকাউন্ট নম্বর *</label><input type="tel" id="bank-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="bank-trx-input" placeholder="TrxID / Reference"></div></div>
-        <div class="instruction-box" id="custom-instruction-box"><h4><i class="fas fa-info-circle"></i> পেমেন্ট নির্দেশিকা:</h4><div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;" id="custom-instruction-text"></div><div class="form-group" style="margin-top: 15px;"><label>প্রেরকের তথ্য *</label><input type="tel" id="custom-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="custom-trx-input" placeholder="9L8A7B6C"></div></div>`;
+    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods.filter(m => m.enabled !== false) : [];
+    if (methods.length === 0) return '';
+    
+    let boxesHtml = '';
+    methods.forEach((pm, idx) => {
+        const val = (pm.value || pm.name || '').toLowerCase().replace(/\s+/g, '-');
+        const instType = pm.instructionType || 'none';
+        const instNum = pm.instructionNumber || '';
+        const customInst = pm.customInstruction || '';
+        const numList = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
+        const bankList = Array.isArray(s.banks) ? s.banks.filter(b => b.enabled !== false) : [];
+        
+        let boxContent = '';
+        
+        if (instType === 'cod') {
+            const bkashNum = getPayNumber('bkash', s) || s.bkash || '';
+            boxContent = `
+                <p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span id="cod-amount-text-${val}">${deliveryCharge}</span></strong></p>
+                <div style="font-size: 13px; font-weight: 600; margin-top: 6px;">👉 বিকাশ নম্বর:</div>
+                <div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${bkashNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${bkashNum}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div>
+                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
+                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
+            `;
+        } else if (instType === 'bank') {
+            let bankHtml = '';
+            if (bankList.length > 0) {
+                bankList.forEach((b, bIdx) => {
+                    bankHtml += `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px; border-left: 3px solid var(--gold-color);">
+                        <strong style="color: var(--gold-color);">🏦 ${b.bankName}</strong><br>
+                        <span style="font-size:12px;">👤 Acc Name: ${b.accountName}</span><br>
+                        <div class="number-row" style="margin: 5px 0;"><span style="font-weight: bold; color: var(--gold-color); font-size: 14px;">${b.accountNumber}</span><button type="button" class="copy-btn" onclick="copyNumber('${b.accountNumber}', 'Account')"><i class="fas fa-copy"></i> কপি</button></div>
+                        <span style="font-size:12px;">🏢 Branch: ${b.branch}</span>
+                    </div>`;
+                });
+            } else {
+                bankHtml = `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">🔢 Account:</strong> ${s.bankAccountNumber || ''}</div>`;
+            }
+            boxContent = `
+                <p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p>
+                ${bankHtml}
+                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের অ্যাকাউন্ট নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div>
+                <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="TrxID / Reference"></div>
+            `;
+        } else if (instType === 'custom') {
+            boxContent = `
+                <div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;">${customInst}</div>
+                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের তথ্য *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
+                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
+            `;
+        } else if (instType !== 'none') {
+            let matchingNum = instNum;
+            if (!matchingNum) matchingNum = getPayNumber(instType, s);
+            
+            let typeName = instType.charAt(0).toUpperCase() + instType.slice(1);
+            if(instType === 'bkash') typeName = 'bKash';
+            
+            boxContent = `
+                <p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="${val}-amount-text-${val}">${totalAmount}</span></strong></p>
+                <div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${matchingNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${matchingNum}', '${typeName}')"><i class="fas fa-copy"></i> কপি</button></div>
+                ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
+                <div class="form-group" style="margin-top: 15px;"><label>আপনার ${typeName} নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
+                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
+            `;
+        }
+        
+        if (boxContent) {
+            boxesHtml += `<div class="instruction-box" id="inst-box-${val}">${boxContent}</div>`;
+        }
+    });
+    
+    return boxesHtml;
 }
 
 window.handlePaymentChange = function() {
