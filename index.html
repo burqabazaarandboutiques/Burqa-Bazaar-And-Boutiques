@@ -2516,14 +2516,17 @@ window.submitOrder = async function(event) {
     const selectedMethod = methods.find(m => (m.value || m.name) === selectedPayment);
     const instructionType = selectedMethod ? (selectedMethod.instructionType || 'none') : 'none';
     let senderNumber = '', trxId = '';
-    const fieldMap = { cod: ['cod-sender-input','cod-trx-input'], bkash: ['bkash-sender-input','bkash-trx-input'], nagad: ['nagad-sender-input','nagad-trx-input'], upay: ['upay-sender-input','upay-trx-input'], rocket: ['rocket-sender-input','rocket-trx-input'], surecash: ['surecash-sender-input','surecash-trx-input'], bank: ['bank-sender-input','bank-trx-input'], custom: ['custom-sender-input','custom-trx-input'] };
-    if (fieldMap[instructionType]) {
-        const [sId, tId] = fieldMap[instructionType];
-        senderNumber = (document.getElementById(sId) || {}).value || '';
-        trxId = (document.getElementById(tId) || {}).value || '';
-        senderNumber = senderNumber.trim(); trxId = trxId.trim();
-        if (!senderNumber || !trxId) { alert('Please provide sender info and TrxID.'); return; }
-    }
+const sId = `${selectedPayment.toLowerCase().replace(/\s+/g, '-')}-sender-input`;
+const tId = `${selectedPayment.toLowerCase().replace(/\s+/g, '-')}-trx-input`;
+const sEl = document.getElementById(sId);
+const tEl = document.getElementById(tId);
+
+// যদি এই মেথডে ইনপুট ফিল্ড থাকে, তবেই চেক করবে
+if (sEl && tEl) {
+    senderNumber = sEl.value.trim(); 
+    trxId = tEl.value.trim();
+    if (!senderNumber || !trxId) { alert('Please provide sender info and TrxID.'); return; }
+}
     const { subtotal, hasPriceComingSoon } = calculateCartSubtotal();
     const shippingSelect = document.getElementById('shipping-select');
     const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
