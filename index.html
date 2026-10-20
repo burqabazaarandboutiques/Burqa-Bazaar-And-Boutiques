@@ -16,7 +16,7 @@
 <!-- ⚡ ULTRA FAST BOOTSTRAP -->
 <script>
 window.FAST_CACHE = {
-    VERSION: 'v2026.5',
+    VERSION: 'v2026.6',
     PREFIX: 'bq_fast_',
     _mem: {},
     _key: function(k) { return this.PREFIX + k; },
@@ -48,9 +48,6 @@ window.FAST_CACHE = {
 window.fcGet = (k, fb) => FAST_CACHE.get(k, fb);
 window.fcSet = (k, d) => FAST_CACHE.set(k, d);
 
-// ============================================================
-// 🔴 REALTIME SYNC SYSTEM
-// ============================================================
 window.REALTIME_SYNC = {
     channel: null,
     init: function() {
@@ -105,7 +102,7 @@ window.showSiteAnnouncement = function(message) {
     clearTimeout(window._siteAnnounceTimer);
     window._siteAnnounceTimer = setTimeout(() => {
         el.style.transform = 'translateY(-100%)';
-    }, 7000); // ৭ সেকেন্ড দেখাবে
+    }, 7000);
 }
 </script>
 
@@ -130,9 +127,6 @@ a { text-decoration: none; color: inherit; }
 #global-loader .loader-text { color: var(--gold-color); font-size: 13px; font-weight: 600; }
 @keyframes loaderPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.08);opacity:.85;} }
 @keyframes loaderBar { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
-
-#sync-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; padding: 12px 24px; border-radius: 30px; z-index: 100000; font-weight: 700; font-size: 14px; box-shadow: 0 8px 25px rgba(34,197,94,.4); opacity: 0; transition: all .4s cubic-bezier(.22,1,.36,1); display: flex; align-items: center; gap: 8px; }
-#sync-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
 header.shrunk .header-container { padding: 8px 15px; }
 header.shrunk .header-logo-circle { width: 30px; height: 30px; }
@@ -870,7 +864,7 @@ window.DEFAULT_SETTINGS = {
     deliveryInside: 60, deliveryOutside: 130,
     logoUrl: 'https://i.ibb.co/zW2qGsmk/file-00000000e71881f4ada02fa6792ea317.png',
     copyrightText: '© 2026 Burqa Bazar and Boutiques. All rights reserved.',
-    contactIcons: [], paymentMethods: [], couriers: []
+    contactIcons: [], paymentNumbers: [], banks: [], couriers: []
 };
 
 async function loadCollection(colName, docId, cacheKey) {
@@ -1101,13 +1095,11 @@ window.attachRealtimeListeners = function() {
         }, (err) => console.warn('Reviews listener error:', err.message));
     } catch(e) {}
 
-    // 🔥 NEW: Listen to Site Notifications from Admin Panel
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'site_notifications'), (snap) => {
             snap.docChanges().forEach((change) => {
                 if (change.type === 'added') {
                     const data = change.doc.data();
-                    // Only show if it's very recent (within last 30 seconds) to avoid spamming old notifications on load
                     if (data.createdAt && (Date.now() - data.createdAt < 30000)) {
                         window.showSiteAnnouncement(data.message);
                     }
@@ -1292,7 +1284,6 @@ window.updateProductsData = function(firebaseProducts) {
     updateWishlistBadge();
     const wl = document.getElementById('wishlist-section');
     if (wl && wl.classList.contains('active-page')) renderWishlist();
-    // Refresh open product detail if it was updated
     const pd = document.getElementById('product-details-section');
     if (pd && pd.classList.contains('active-page') && currentProductId) {
         const exists = productsData.find(p => p.id === currentProductId);
@@ -1832,7 +1823,7 @@ window.updateCartUI = function() {
     }
     const { subtotal, hasPriceComingSoon } = calculateCartSubtotal();
     if (appliedCoupon) discountAmount = calculateDiscount(subtotal);
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || { deliveryInside: 60, deliveryOutside: 130, bkash: '01832140613', nagad: '01832140613' };
+    const s = window.settingsCache || window.DEFAULT_SETTINGS || { deliveryInside: 60, deliveryOutside: 130 };
     const defaultDelivery = s.deliveryInside || 60;
     let shippingSelect = document.getElementById('shipping-select');
     let deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : defaultDelivery;
@@ -1882,96 +1873,75 @@ window.renderPaymentMethods = function() {
     const container = document.querySelector('.payment-methods-box');
     if (!container) return;
     const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods.filter(m => m.enabled !== false) : [];
-    if (methods.length === 0) { container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">কোনো payment method নেই।</p>'; return; }
+    const numbers = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
+    
+    if (numbers.length === 0) { 
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">কোনো payment method নেই।</p>'; 
+        return; 
+    }
+    
     let html = '';
-    methods.forEach((pm, idx) => {
-        const value = pm.value || pm.name || '';
-        const label = pm.label || pm.name || value;
-        const iconUrl = extractUrl(pm.iconUrl) || '';
+    numbers.forEach((pm, idx) => {
+        const label = pm.name || 'Payment';
+        const val = label.toLowerCase().replace(/\s+/g, '-');
+        const iconUrl = pm.imageUrl || '';
         const checked = idx === 0 ? 'checked' : '';
-        html += `<label class="payment-option"><input type="radio" name="payment" value="${value}" onchange="handlePaymentChange()" ${checked}>${iconUrl ? `<img src="${iconUrl}" alt="${label}" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${label}</span></label>`;
+        html += `<label class="payment-option"><input type="radio" name="payment" value="${val}" onchange="handlePaymentChange()" ${checked}>
+        ${iconUrl ? `<img src="${iconUrl}" alt="${label}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <span>${label}</span></label>`;
     });
     container.innerHTML = html;
 };
+
 function renderAllPaymentInstructionBoxes(deliveryCharge, totalAmount, s) {
-    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods.filter(m => m.enabled !== false) : [];
-    if (methods.length === 0) return '';
+    const numbers = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
+    if (numbers.length === 0) return '';
     
     let boxesHtml = '';
-    methods.forEach((pm, idx) => {
-        const val = (pm.value || pm.name || '').toLowerCase().replace(/\s+/g, '-');
-        const instType = pm.instructionType || 'none';
-        const customInst = pm.customInstruction || '';
+    numbers.forEach((pm, idx) => {
+        const name = pm.name || 'Payment';
+        const val = name.toLowerCase().replace(/\s+/g, '-');
+        const num = pm.number || '';
+        const inst = pm.instruction || '';
+        const isCOD = val.includes('cod') || val.includes('cash') || val.includes('delivery');
         
-        // Find Number
-        let instNum = pm.instructionNumber || '';
-        if (!instNum) {
-            if (Array.isArray(s.paymentNumbers)) {
-                const found = s.paymentNumbers.find(p => (p.name || '').toLowerCase().includes(val) || (p.name || '').toLowerCase().includes((pm.name || '').toLowerCase()));
-                if (found) instNum = found.number;
-            }
-            if (!instNum) {
-                if (val.includes('bkash')) instNum = s.bkash || '';
-                else if (val.includes('nagad')) instNum = s.nagad || '';
-                else if (val.includes('upay')) instNum = s.upay || '';
-                else if (val.includes('rocket')) instNum = s.rocket || '';
-            }
-        }
-
-        let boxContent = '';
-        let typeName = pm.label || pm.name || pm.value || 'Payment';
-
-        if (instType === 'cod' || val.includes('cod') || val.includes('cash')) {
-             const codNum = instNum || s.bkash || ''; 
-             boxContent = `
-                <p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span class="inst-amount-display" data-type="cod">${deliveryCharge}</span></strong></p>
-                ${codNum ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${codNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${codNum}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div>` : ''}
-                ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
-                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
-                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-             `;
-        } else if (instType === 'bank' || val.includes('bank')) {
-             const bankList = Array.isArray(s.banks) ? s.banks.filter(b => b.enabled !== false) : [];
-             let bankHtml = '';
-             if (bankList.length > 0) {
-                 bankList.forEach(b => {
-                     bankHtml += `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px; border-left: 3px solid var(--gold-color);">
-                         <strong style="color: var(--gold-color);">🏦 ${b.bankName}</strong><br>
-                         <span style="font-size:12px;">👤 Acc Name: ${b.accountName}</span><br>
-                         <div class="number-row" style="margin: 5px 0;"><span style="font-weight: bold; color: var(--gold-color); font-size: 14px;">${b.accountNumber}</span><button type="button" class="copy-btn" onclick="copyNumber('${b.accountNumber}', 'Account')"><i class="fas fa-copy"></i> কপি</button></div>
-                         <span style="font-size:12px;">🏢 Branch: ${b.branch}</span>
-                     </div>`;
-                 });
-             } else {
-                 bankHtml = `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">🔢 Account:</strong> ${s.bankAccountNumber || ''}</div>`;
-             }
-             boxContent = `
-                 <p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p>
-                 ${bankHtml}
-                 ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
-                 <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের অ্যাকাউন্ট নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div>
-                 <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="TrxID / Reference"></div>
-             `;
-        } else {
-             boxContent = `
-                <p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span class="inst-amount-display" data-type="full">${totalAmount}</span></strong></p>
-                ${instNum ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${instNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${instNum}', '${typeName}')"><i class="fas fa-copy"></i> কপি</button></div>` : '<p style="color:red; font-size:12px;">সেটিংস থেকে নাম্বার দিন</p>'}
-                ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
-                <div class="form-group" style="margin-top: 15px;"><label>আপনার ${typeName} নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
-                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-             `;
-        }
-
-        if (boxContent) {
-            boxesHtml += `<div class="instruction-box" id="inst-box-${val}">${boxContent}</div>`;
-        }
+        let boxContent = `
+            <p>${isCOD ? 'ডেলিভারি চার্জ অগ্রিম:' : 'সম্পূর্ণ পেমেন্ট:'} <strong style="color: var(--gold-color); font-size: 15px;">৳ <span class="inst-amount-display" data-type="${isCOD ? 'cod' : 'full'}">${isCOD ? deliveryCharge : totalAmount}</span></strong></p>
+            ${num ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${num}</span><button type="button" class="copy-btn" onclick="copyNumber('${num}', '${name}')"><i class="fas fa-copy"></i> কপি</button></div>` : ''}
+            ${inst ? `<div style="font-size: 13px; color: #fcd34d; margin-bottom: 15px; padding: 10px; background: rgba(245,158,11,0.1); border-left: 3px solid #f59e0b; border-radius: 4px;"><i class="fas fa-info-circle"></i> ${inst}</div>` : ''}
+            <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর / অ্যাকাউন্ট *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
+            <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
+        `;
+        
+        boxesHtml += `<div class="instruction-box" id="inst-box-${val}">${boxContent}</div>`;
     });
     return boxesHtml;
 }
 
+window.handlePaymentChange = function() {
+    const selectedEl = document.querySelector('input[name="payment"]:checked');
+    if (!selectedEl) return;
+    const selectedPayment = selectedEl.value;
     
-
+    document.querySelectorAll('.instruction-box').forEach(box => box.style.display = 'none');
+    
+    const box = document.getElementById(`inst-box-${selectedPayment}`);
+    if (box) {
+        box.style.display = 'block';
+        
+        const { subtotal } = calculateCartSubtotal();
+        const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
+        const shippingSelect = document.getElementById('shipping-select');
+        const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
+        const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
+        const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
+        
+        box.querySelectorAll('.inst-amount-display').forEach(el => {
+            if (el.getAttribute('data-type') === 'cod') el.textContent = deliveryCharge;
+            else el.textContent = totalAmount;
+        });
+    }
+};
 
 window.updateDeliveryCharge = function() {
     const shippingSelect = document.getElementById('shipping-select');
@@ -1987,31 +1957,7 @@ window.updateDeliveryCharge = function() {
     if (tEl) tEl.textContent = '৳ ' + totalAmount;
     window.handlePaymentChange();
 };
-window.handlePaymentChange = function() {
-    const selectedEl = document.querySelector('input[name="payment"]:checked');
-    if (!selectedEl) return;
-    const selectedPayment = selectedEl.value.toLowerCase().replace(/\s+/g, '-');
-    
-    document.querySelectorAll('.instruction-box').forEach(box => box.style.display = 'none');
-    
-    const box = document.getElementById(`inst-box-${selectedPayment}`);
-    if (box) {
-        box.style.display = 'block';
-        
-        const { subtotal } = calculateCartSubtotal();
-        const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-        const shippingSelect = document.getElementById('shipping-select');
-        const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
-        const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
-        const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
-        
-        const codAmt = document.getElementById(`cod-amount-text-${selectedPayment}`);
-        if (codAmt) codAmt.textContent = deliveryCharge;
-        
-        const fullAmt = document.getElementById(`${selectedPayment}-amount-text-${selectedPayment}`);
-        if (fullAmt) fullAmt.textContent = totalAmount;
-    }
-};
+
 window.increaseQty = function(index) { cart[index].quantity += 1; localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.decreaseQty = function(index) { if (cart[index].quantity > 1) cart[index].quantity -= 1; else cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.removeFromCart = function(index) { const removed = cart[index].name; cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.showToast(removed + ' সরানো হয়েছে!'); };
@@ -2514,22 +2460,19 @@ window.submitOrder = async function(event) {
     if (!selectedPaymentEl) { alert('Please select a payment method.'); return; }
     const selectedPayment = selectedPaymentEl.value;
     if (!name || !phone || !city || !district || !thana || !address) { alert('Please fill required fields.'); return; }
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods : [];
-    const selectedMethod = methods.find(m => (m.value || m.name) === selectedPayment);
-    const instructionType = selectedMethod ? (selectedMethod.instructionType || 'none') : 'none';
+    
+    const sId = `${selectedPayment}-sender-input`;
+    const tId = `${selectedPayment}-trx-input`;
+    const sEl = document.getElementById(sId);
+    const tEl = document.getElementById(tId);
     let senderNumber = '', trxId = '';
-const sId = `${selectedPayment.toLowerCase().replace(/\s+/g, '-')}-sender-input`;
-const tId = `${selectedPayment.toLowerCase().replace(/\s+/g, '-')}-trx-input`;
-const sEl = document.getElementById(sId);
-const tEl = document.getElementById(tId);
+    
+    if (sEl && tEl) {
+        senderNumber = sEl.value.trim(); 
+        trxId = tEl.value.trim();
+        if (!senderNumber || !trxId) { alert('Please provide sender info and TrxID.'); return; }
+    }
 
-// যদি এই মেথডে ইনপুট ফিল্ড থাকে, তবেই চেক করবে
-if (sEl && tEl) {
-    senderNumber = sEl.value.trim(); 
-    trxId = tEl.value.trim();
-    if (!senderNumber || !trxId) { alert('Please provide sender info and TrxID.'); return; }
-}
     const { subtotal, hasPriceComingSoon } = calculateCartSubtotal();
     const shippingSelect = document.getElementById('shipping-select');
     const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
