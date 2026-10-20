@@ -1902,72 +1902,75 @@ function renderAllPaymentInstructionBoxes(deliveryCharge, totalAmount, s) {
     methods.forEach((pm, idx) => {
         const val = (pm.value || pm.name || '').toLowerCase().replace(/\s+/g, '-');
         const instType = pm.instructionType || 'none';
-        const instNum = pm.instructionNumber || '';
         const customInst = pm.customInstruction || '';
-        const numList = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
-        const bankList = Array.isArray(s.banks) ? s.banks.filter(b => b.enabled !== false) : [];
         
+        // Find Number
+        let instNum = pm.instructionNumber || '';
+        if (!instNum) {
+            if (Array.isArray(s.paymentNumbers)) {
+                const found = s.paymentNumbers.find(p => (p.name || '').toLowerCase().includes(val) || (p.name || '').toLowerCase().includes((pm.name || '').toLowerCase()));
+                if (found) instNum = found.number;
+            }
+            if (!instNum) {
+                if (val.includes('bkash')) instNum = s.bkash || '';
+                else if (val.includes('nagad')) instNum = s.nagad || '';
+                else if (val.includes('upay')) instNum = s.upay || '';
+                else if (val.includes('rocket')) instNum = s.rocket || '';
+            }
+        }
+
         let boxContent = '';
-        
-        if (instType === 'cod') {
-            const bkashNum = getPayNumber('bkash', s) || s.bkash || '';
-            boxContent = `
-                <p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span id="cod-amount-text-${val}">${deliveryCharge}</span></strong></p>
-                <div style="font-size: 13px; font-weight: 600; margin-top: 6px;">👉 বিকাশ নম্বর:</div>
-                <div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${bkashNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${bkashNum}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div>
+        let typeName = pm.label || pm.name || pm.value || 'Payment';
+
+        if (instType === 'cod' || val.includes('cod') || val.includes('cash')) {
+             const codNum = instNum || s.bkash || ''; 
+             boxContent = `
+                <p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span class="inst-amount-display" data-type="cod">${deliveryCharge}</span></strong></p>
+                ${codNum ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${codNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${codNum}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div>` : ''}
+                ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
                 <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
                 <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-            `;
-        } else if (instType === 'bank') {
-            let bankHtml = '';
-            if (bankList.length > 0) {
-                bankList.forEach((b, bIdx) => {
-                    bankHtml += `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px; border-left: 3px solid var(--gold-color);">
-                        <strong style="color: var(--gold-color);">🏦 ${b.bankName}</strong><br>
-                        <span style="font-size:12px;">👤 Acc Name: ${b.accountName}</span><br>
-                        <div class="number-row" style="margin: 5px 0;"><span style="font-weight: bold; color: var(--gold-color); font-size: 14px;">${b.accountNumber}</span><button type="button" class="copy-btn" onclick="copyNumber('${b.accountNumber}', 'Account')"><i class="fas fa-copy"></i> কপি</button></div>
-                        <span style="font-size:12px;">🏢 Branch: ${b.branch}</span>
-                    </div>`;
-                });
-            } else {
-                bankHtml = `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">🔢 Account:</strong> ${s.bankAccountNumber || ''}</div>`;
-            }
-            boxContent = `
-                <p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p>
-                ${bankHtml}
-                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের অ্যাকাউন্ট নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div>
-                <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="TrxID / Reference"></div>
-            `;
-        } else if (instType === 'custom') {
-            boxContent = `
-                <div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;">${customInst}</div>
-                <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের তথ্য *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
-                <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-            `;
-        } else if (instType !== 'none') {
-            let matchingNum = instNum;
-            if (!matchingNum) matchingNum = getPayNumber(instType, s);
-            
-            let typeName = instType.charAt(0).toUpperCase() + instType.slice(1);
-            if(instType === 'bkash') typeName = 'bKash';
-            
-            boxContent = `
-                <p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="${val}-amount-text-${val}">${totalAmount}</span></strong></p>
-                <div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${matchingNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${matchingNum}', '${typeName}')"><i class="fas fa-copy"></i> কপি</button></div>
+             `;
+        } else if (instType === 'bank' || val.includes('bank')) {
+             const bankList = Array.isArray(s.banks) ? s.banks.filter(b => b.enabled !== false) : [];
+             let bankHtml = '';
+             if (bankList.length > 0) {
+                 bankList.forEach(b => {
+                     bankHtml += `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px; border-left: 3px solid var(--gold-color);">
+                         <strong style="color: var(--gold-color);">🏦 ${b.bankName}</strong><br>
+                         <span style="font-size:12px;">👤 Acc Name: ${b.accountName}</span><br>
+                         <div class="number-row" style="margin: 5px 0;"><span style="font-weight: bold; color: var(--gold-color); font-size: 14px;">${b.accountNumber}</span><button type="button" class="copy-btn" onclick="copyNumber('${b.accountNumber}', 'Account')"><i class="fas fa-copy"></i> কপি</button></div>
+                         <span style="font-size:12px;">🏢 Branch: ${b.branch}</span>
+                     </div>`;
+                 });
+             } else {
+                 bankHtml = `<div style="margin-bottom:10px; padding:10px; background:var(--bg-color); border-radius:8px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">🔢 Account:</strong> ${s.bankAccountNumber || ''}</div>`;
+             }
+             boxContent = `
+                 <p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p>
+                 ${bankHtml}
+                 ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
+                 <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের অ্যাকাউন্ট নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div>
+                 <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="TrxID / Reference"></div>
+             `;
+        } else {
+             boxContent = `
+                <p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span class="inst-amount-display" data-type="full">${totalAmount}</span></strong></p>
+                ${instNum ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${instNum}</span><button type="button" class="copy-btn" onclick="copyNumber('${instNum}', '${typeName}')"><i class="fas fa-copy"></i> কপি</button></div>` : '<p style="color:red; font-size:12px;">সেটিংস থেকে নাম্বার দিন</p>'}
                 ${customInst ? `<p style="font-size:12px; color:var(--warn-color); margin-top:8px;"><i class="fas fa-info-circle"></i> ${customInst}</p>` : ''}
                 <div class="form-group" style="margin-top: 15px;"><label>আপনার ${typeName} নম্বর *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
                 <div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-            `;
+             `;
         }
-        
+
         if (boxContent) {
             boxesHtml += `<div class="instruction-box" id="inst-box-${val}">${boxContent}</div>`;
         }
     });
-    
     return boxesHtml;
 }
 
+    
 
 
 window.updateDeliveryCharge = function() {
