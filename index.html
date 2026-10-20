@@ -1968,35 +1968,7 @@ function renderAllPaymentInstructionBoxes(deliveryCharge, totalAmount, s) {
     return boxesHtml;
 }
 
-window.handlePaymentChange = function() {
-    const selectedEl = document.querySelector('input[name="payment"]:checked');
-    if (!selectedEl) return;
-    const selectedPayment = selectedEl.value;
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods : [];
-    const selectedMethod = methods.find(m => (m.value || m.name) === selectedPayment);
-    const instructionType = selectedMethod ? (selectedMethod.instructionType || 'none') : 'none';
-    const boxIds = ['cod-instruction-box','bkash-instruction-box','nagad-instruction-box','upay-instruction-box','rocket-instruction-box','surecash-instruction-box','bank-instruction-box','custom-instruction-box'];
-    boxIds.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
-    const { subtotal } = calculateCartSubtotal();
-    const shippingSelect = document.getElementById('shipping-select');
-    const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
-    const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
-    const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
-    const typeToBox = { cod: 'cod-instruction-box', bkash: 'bkash-instruction-box', nagad: 'nagad-instruction-box', upay: 'upay-instruction-box', rocket: 'rocket-instruction-box', surecash: 'surecash-instruction-box', bank: 'bank-instruction-box', custom: 'custom-instruction-box' };
-    const boxId = typeToBox[instructionType];
-    if (boxId) {
-        const box = document.getElementById(boxId);
-        if (box) box.style.display = 'block';
-        if (instructionType === 'cod') { const el = document.getElementById('cod-amount-text'); if (el) el.textContent = deliveryCharge; }
-        if (instructionType === 'bkash') { const el = document.getElementById('bkash-amount-text'); if (el) el.textContent = totalAmount; }
-        if (instructionType === 'nagad') { const el = document.getElementById('nagad-amount-text'); if (el) el.textContent = totalAmount; }
-        if (instructionType === 'upay') { const el = document.getElementById('upay-amount-text'); if (el) el.textContent = totalAmount; }
-        if (instructionType === 'rocket') { const el = document.getElementById('rocket-amount-text'); if (el) el.textContent = totalAmount; }
-        if (instructionType === 'surecash') { const el = document.getElementById('surecash-amount-text'); if (el) el.textContent = totalAmount; }
-        if (instructionType === 'custom') { const ct = document.getElementById('custom-instruction-text'); if (ct) ct.innerHTML = selectedMethod.customInstruction || 'আমাদের সাথে যোগাযোগ করুন।'; }
-    }
-};
+
 
 window.updateDeliveryCharge = function() {
     const shippingSelect = document.getElementById('shipping-select');
@@ -2012,7 +1984,31 @@ window.updateDeliveryCharge = function() {
     if (tEl) tEl.textContent = '৳ ' + totalAmount;
     window.handlePaymentChange();
 };
-
+window.handlePaymentChange = function() {
+    const selectedEl = document.querySelector('input[name="payment"]:checked');
+    if (!selectedEl) return;
+    const selectedPayment = selectedEl.value.toLowerCase().replace(/\s+/g, '-');
+    
+    document.querySelectorAll('.instruction-box').forEach(box => box.style.display = 'none');
+    
+    const box = document.getElementById(`inst-box-${selectedPayment}`);
+    if (box) {
+        box.style.display = 'block';
+        
+        const { subtotal } = calculateCartSubtotal();
+        const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
+        const shippingSelect = document.getElementById('shipping-select');
+        const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
+        const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
+        const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
+        
+        const codAmt = document.getElementById(`cod-amount-text-${selectedPayment}`);
+        if (codAmt) codAmt.textContent = deliveryCharge;
+        
+        const fullAmt = document.getElementById(`${selectedPayment}-amount-text-${selectedPayment}`);
+        if (fullAmt) fullAmt.textContent = totalAmount;
+    }
+};
 window.increaseQty = function(index) { cart[index].quantity += 1; localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.decreaseQty = function(index) { if (cart[index].quantity > 1) cart[index].quantity -= 1; else cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.removeFromCart = function(index) { const removed = cart[index].name; cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.showToast(removed + ' সরানো হয়েছে!'); };
