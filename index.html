@@ -13,10 +13,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- ⚡ ULTRA FAST BOOTSTRAP -->
 <script>
 window.FAST_CACHE = {
-    VERSION: 'v2026.8',
+    VERSION: 'v2026.9',
     PREFIX: 'bq_fast_',
     _mem: {},
     _key: function(k) { return this.PREFIX + k; },
@@ -26,10 +25,7 @@ window.FAST_CACHE = {
             const raw = localStorage.getItem(this._key(k));
             if (!raw) return fallback;
             const parsed = JSON.parse(raw);
-            if (parsed.__v && parsed.__v !== this.VERSION) {
-                localStorage.removeItem(this._key(k));
-                return fallback;
-            }
+            if (parsed.__v && parsed.__v !== this.VERSION) { localStorage.removeItem(this._key(k)); return fallback; }
             const data = parsed.__d !== undefined ? parsed.__d : parsed;
             this._mem[k] = data;
             return data;
@@ -40,10 +36,7 @@ window.FAST_CACHE = {
         try { localStorage.setItem(this._key(k), JSON.stringify({ __v: this.VERSION, __d: data, __t: Date.now() })); } catch(e) {}
     },
     remove: function(k) { delete this._mem[k]; try { localStorage.removeItem(this._key(k)); } catch(e) {} },
-    clearAll: function() {
-        this._mem = {};
-        try { Object.keys(localStorage).forEach(k => { if (k.startsWith(this.PREFIX)) localStorage.removeItem(k); }); } catch(e) {}
-    }
+    clearAll: function() { this._mem = {}; try { Object.keys(localStorage).forEach(k => { if (k.startsWith(this.PREFIX)) localStorage.removeItem(k); }); } catch(e) {} }
 };
 window.fcGet = (k, fb) => FAST_CACHE.get(k, fb);
 window.fcSet = (k, d) => FAST_CACHE.set(k, d);
@@ -58,18 +51,9 @@ window.REALTIME_SYNC = {
                 if (type === 'UPDATE' && key) this.handleUpdate(key, data);
             };
         } catch(e) {}
-        window.addEventListener('storage', (e) => {
-            if (!e.key || !e.key.startsWith(FAST_CACHE.PREFIX)) return;
-            const rawKey = e.key.replace(FAST_CACHE.PREFIX, '');
-            if (rawKey.startsWith('__sync_')) {
-                const syncKey = rawKey.replace('__sync_', '');
-                delete FAST_CACHE._mem[syncKey];
-                this.handleUpdate(syncKey, null);
-            }
-        });
     },
     handleUpdate: function(key, data) {
-        if (key === 'products' || key === '__ALL__') { updateProductsData(data || fcGet('products', [])); }
+        if (key === 'products' || key === '__ALL__') updateProductsData(data || fcGet('products', []));
         if (key === 'banners' || key === '__ALL__') { window.bannersCache = data || fcGet('banners', []); renderBannerSlider(); }
         if (key === 'homeCollections' || key === '__ALL__') { window.homeCollectionsCache = data || fcGet('homeCollections', []); renderHomeCollections(); }
         if (key === 'faq' || key === '__ALL__') { window.faqCache = data || fcGet('faq', []); renderFAQ(); }
@@ -78,7 +62,6 @@ window.REALTIME_SYNC = {
     }
 };
 
-// 📢 SITE ANNOUNCEMENT (প্রিয় কাস্টমার নোটিফিকেশন)
 window.showSiteAnnouncement = function(message) {
     let el = document.getElementById('site-announcement-banner');
     if (!el) {
@@ -826,7 +809,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { initializeFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { initializeFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBz6nILSzcvSofF9iyPt-h3ffseEXTwgnA",
@@ -849,6 +832,8 @@ window.fbOnSnapshot = onSnapshot;
 window.fbQuery = query;
 window.fbOrderBy = orderBy;
 window.fbWhere = where;
+window.fbUpdateDoc = updateDoc;
+window.fbIncrement = increment;
 
 window.DEFAULT_SETTINGS = {
     storeName: 'Burqa Bazar and Boutiques',
@@ -884,18 +869,11 @@ async function loadCollection(colName, docId, cacheKey) {
         } else {
             const snap = await getDocs(collection(db, colName));
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             if (colName === 'products') arr.sort((a,b) => (parseInt(a.id)||0)-(parseInt(b.id)||0));
             if (colName === 'banners') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             if (colName === 'homeCollections') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             if (colName === 'faq') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
-            if (colName === 'reviews') {
-                const obj = {};
-                arr.forEach(r => { const pid = r.productId; if (pid === undefined || pid === null) return; if (!obj[pid]) obj[pid] = []; obj[pid].push(r); });
-                fcSet(cacheKey, obj);
-                window.reviewsCache = obj;
-                return;
-            }
             fcSet(cacheKey, arr);
             if (cacheKey === 'products') { window.productsCache = arr; updateProductsData(arr); }
             if (cacheKey === 'banners') { window.bannersCache = arr; renderBannerSlider(); }
@@ -927,7 +905,6 @@ window.preloadEverything = async function() {
         loadCollection('faq', null, 'faq'),
         loadCollection('coupons', null, 'coupons'),
         loadCollection('sizeCharts', null, 'sizeCharts'),
-        loadCollection('reviews', null, 'reviews'),
         loadPages()
     ]).then(() => console.log('✅ Background sync complete'));
 };
@@ -960,9 +937,6 @@ window.instantLoadFromCache = function() {
     const cachedSC = fcGet('sizeCharts', null);
     if (cachedSC && typeof cachedSC === 'object') window.sizeChartsCache = cachedSC;
     
-    const cachedReviews = fcGet('reviews', null);
-    if (cachedReviews && typeof cachedReviews === 'object') window.reviewsCache = cachedReviews;
-    
     const cachedCats = fcGet('categories', null);
     if (cachedCats && Array.isArray(cachedCats)) { window.categoriesCache = cachedCats; renderDynamicCategories(); }
 };
@@ -973,7 +947,7 @@ window.attachRealtimeListeners = function() {
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'products'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.id)||0)-(parseInt(b.id)||0));
             fcSet('products', arr);
             window.productsCache = arr;
@@ -984,7 +958,7 @@ window.attachRealtimeListeners = function() {
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'banners'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             const active = arr.filter(b => b.active !== false);
             fcSet('banners', active);
@@ -996,7 +970,7 @@ window.attachRealtimeListeners = function() {
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'homeCollections'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             const active = arr.filter(x => x.enabled !== false).sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             fcSet('homeCollections', active);
             window.homeCollectionsCache = active;
@@ -1007,7 +981,7 @@ window.attachRealtimeListeners = function() {
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'faq'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             fcSet('faq', arr);
             window.faqCache = arr;
@@ -1018,7 +992,7 @@ window.attachRealtimeListeners = function() {
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'coupons'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
             fcSet('coupons', arr);
             window.couponsCache = arr;
             renderHomeCoupons();
@@ -1071,25 +1045,6 @@ window.attachRealtimeListeners = function() {
             fcSet('sizeCharts', obj);
             window.sizeChartsCache = obj;
         }, (err) => console.warn('SizeCharts listener error:', err.message));
-    } catch(e) {}
-    
-    try {
-        window.fbOnSnapshot(window.fbCollection(window.db, 'reviews'), (snap) => {
-            const obj = {};
-            snap.forEach(d => {
-                const data = d.data();
-                const pid = data.productId;
-                if (pid === undefined || pid === null) return;
-                if (!obj[pid]) obj[pid] = [];
-                obj[pid].push({ id: d.id, ...data });
-            });
-            fcSet('reviews', obj);
-            window.reviewsCache = obj;
-            const pd = document.getElementById('product-details-section');
-            if (pd && pd.classList.contains('active-page') && currentProductId) {
-                openProductDetails(currentProductId);
-            }
-        }, (err) => console.warn('Reviews listener error:', err.message));
     } catch(e) {}
 
     try {
@@ -1162,6 +1117,9 @@ window.currentBannerIndex = 0;
 let bannerAutoSlideTimer = null;
 const BANNER_AUTO_SLIDE_MS = 5000;
 let bannerSwipeStartX = 0, bannerSwipeEndX = 0, bannerSwipeAttached = false;
+
+// Per-product reviews cache (loaded only when product detail opens)
+window.productReviewsCache = window.productReviewsCache || {};
 
 function extractUrl(str) {
     if (!str || typeof str !== 'string') return '';
@@ -1273,7 +1231,25 @@ window.updateProductsData = function(firebaseProducts) {
         } else if (typeof safePrice !== 'number' && typeof safePrice !== 'string') safePrice = 'Coming Soon';
         let safeStock = 1;
         if (p.stock !== undefined && p.stock !== null) { safeStock = parseInt(p.stock); if (isNaN(safeStock) || safeStock < 0) safeStock = 0; }
-        return { id: parseInt(p.id) || Math.floor(Math.random() * 100000), name: p.name || 'Unnamed Product', category: p.category || 'Uncategorized', price: safePrice, stock: safeStock, image: mainImage, video: p.video || null, badge: p.badge || null, badgeText: p.badgeText || null, sizes: Array.isArray(p.sizes) ? p.sizes : [], colors: safeColors, images: safeImages, fullDescription: p.fullDescription || ('<h3>' + (p.name || '') + '</h3>') };
+        return { 
+            id: parseInt(p.id) || Math.floor(Math.random() * 100000), 
+            docId: p.docId || null,
+            name: p.name || 'Unnamed Product', 
+            category: p.category || 'Uncategorized', 
+            price: safePrice, 
+            stock: safeStock, 
+            image: mainImage, 
+            video: p.video || null, 
+            badge: p.badge || null, 
+            badgeText: p.badgeText || null, 
+            sizes: Array.isArray(p.sizes) ? p.sizes : [], 
+            colors: safeColors, 
+            images: safeImages, 
+            reviewCount: parseInt(p.reviewCount) || 0,
+            ratingSum: parseInt(p.ratingSum) || 0,
+            ratingDist: p.ratingDist || {5:0,4:0,3:0,2:0,1:0},
+            fullDescription: p.fullDescription || ('<h3>' + (p.name || '') + '</h3>') 
+        };
     });
     productsData.sort(function(a, b) { return a.id - b.id; });
     renderProducts(productsData);
@@ -1994,11 +1970,11 @@ window.subscribeNewsletter = async function(event) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>...';
     try {
-        if (!window.db || !window.fbAddDoc) throw new Error('Firebase not ready');
-        const snap = await window.fbGetDocs(window.fbCollection(window.db, 'newsletter'));
-        let exists = false;
-        snap.forEach(d => { if ((d.data().email || '').toLowerCase() === email) exists = true; });
-        if (exists) { window.showToast('ℹ️ ইতিমধ্যে সাবস্ক্রাইব করেছেন'); emailInput.value = ''; isSubscribing = false; btn.disabled = false; btn.innerHTML = origText; return; }
+        if (!window.db || !window.fbAddDoc || !window.fbQuery || !window.fbWhere) throw new Error('Firebase not ready');
+        // ⚡ OPTIMIZED: query returns 0 or 1 doc, not all docs
+        const q = window.fbQuery(window.fbCollection(window.db, 'newsletter'), window.fbWhere('email', '==', email));
+        const snap = await window.fbGetDocs(q);
+        if (!snap.empty) { window.showToast('ℹ️ ইতিমধ্যে সাবস্ক্রাইব করেছেন'); emailInput.value = ''; isSubscribing = false; btn.disabled = false; btn.innerHTML = origText; return; }
         await window.fbAddDoc(window.fbCollection(window.db, 'newsletter'), { email, date: new Date().toISOString(), source: 'website' });
         window.showToast('✅ ধন্যবাদ! সাবস্ক্রাইব হয়েছে');
         emailInput.value = '';
@@ -2129,7 +2105,6 @@ window.openProductDetails = function(productId) {
     if (!product) return;
     currentProductId = productId;
     selectedSize = null; selectedColor = null; currentRating = 0; isSubmittingReview = false;
-    if (typeof window.trackProductView === 'function') window.trackProductView(product);
     const isOOS = (product.stock === 0);
     const hasSizes = product.sizes && product.sizes.length > 0;
     const hasColors = product.colors && product.colors.length > 0;
@@ -2178,6 +2153,27 @@ window.openProductDetails = function(productId) {
     window.switchTab('product-details');
     window.scrollTo(0, 0);
     setTimeout(attachGallerySwipeHandlers, 50);
+    
+    // Lazy load reviews for this product only
+    fetchReviewsForProduct(productId).then(() => {
+        if (currentProductId !== productId) return;
+        const pdSection = document.getElementById('product-details-section');
+        if (!pdSection || !pdSection.classList.contains('active-page')) return;
+        const container = document.getElementById('product-details-content');
+        if (!container) return;
+        const newHtml = renderRatingSection(productId);
+        const temp = document.createElement('div');
+        temp.innerHTML = newHtml;
+        const oldSummary = container.querySelector('.rating-summary');
+        const oldReview = container.querySelector('.review-section');
+        const oldList = container.querySelector('.review-list');
+        const newSummary = temp.querySelector('.rating-summary');
+        const newReview = temp.querySelector('.review-section');
+        const newList = temp.querySelector('.review-list');
+        if (oldSummary && newSummary) oldSummary.replaceWith(newSummary);
+        if (oldReview && newReview) oldReview.replaceWith(newReview);
+        if (oldList && newList) oldList.replaceWith(newList);
+    });
 };
 
 window.selectSize = function(size) {
@@ -2216,7 +2212,6 @@ window.addToCartFromDetails = function() {
 };
 
 function addToCartWithOptions(product, size, color) {
-    if (typeof window.trackAddToCart === 'function') window.trackAddToCart(product);
     const cartKey = product.id + '_' + (size || 'nosize') + '_' + (color || 'nocolor');
     const existingItem = cart.find(item => item.cartKey === cartKey);
     if (existingItem) existingItem.quantity += 1;
@@ -2284,25 +2279,68 @@ window.copyProductLink = function() {
     navigator.clipboard.writeText(shareUrl).then(() => { window.showToast('✅ Link কপি হয়েছে!'); window.closeShareModal(); }).catch(() => window.showToast('❌ কপি করা যায়নি'));
 };
 
-function getProductReviews(productId) { if (!window.reviewsCache) return []; return window.reviewsCache[productId] || []; }
+function getProductReviews(productId) {
+    return window.productReviewsCache[productId] || [];
+}
+
+async function fetchReviewsForProduct(productId) {
+    if (!window.db || !window.fbGetDocs || !window.fbCollection || !window.fbQuery || !window.fbWhere) return [];
+    try {
+        const q = window.fbQuery(window.fbCollection(window.db, 'reviews'), window.fbWhere('productId', '==', productId));
+        const snap = await window.fbGetDocs(q);
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        window.productReviewsCache[productId] = arr;
+        return arr;
+    } catch (err) {
+        console.warn('Fetch reviews failed:', err.message);
+        return [];
+    }
+}
 
 async function saveProductReviewToFirestore(productId, review) {
     if (!window.db || !window.fbAddDoc || !window.fbCollection) throw new Error('Firebase not ready');
-    const docRef = await window.fbAddDoc(window.fbCollection(window.db, "reviews"), { productId, name: review.name, rating: review.rating, text: review.text, date: new Date().toISOString(), createdAt: new Date().toISOString() });
-    if (!window.reviewsCache) window.reviewsCache = {};
-    if (!window.reviewsCache[productId]) window.reviewsCache[productId] = [];
-    window.reviewsCache[productId].unshift({ id: docRef.id, productId, name: review.name, rating: review.rating, text: review.text, date: new Date().toISOString() });
-    fcSet('reviews', window.reviewsCache);
+    const docRef = await window.fbAddDoc(window.fbCollection(window.db, "reviews"), { 
+        productId, name: review.name, rating: review.rating, text: review.text, 
+        date: new Date().toISOString(), createdAt: new Date().toISOString() 
+    });
+    // Update product counters
+    const product = productsData.find(p => p.id === productId);
+    if (product && product.docId && window.fbUpdateDoc && window.fbIncrement) {
+        const rating = parseInt(review.rating) || 0;
+        try {
+            await window.fbUpdateDoc(window.fbDoc(window.db, 'products', product.docId), {
+                reviewCount: window.fbIncrement(1),
+                ratingSum: window.fbIncrement(rating),
+                ['ratingDist.' + rating]: window.fbIncrement(1)
+            });
+            product.reviewCount = (product.reviewCount || 0) + 1;
+            product.ratingSum = (product.ratingSum || 0) + rating;
+            if (!product.ratingDist) product.ratingDist = {5:0,4:0,3:0,2:0,1:0};
+            product.ratingDist[rating] = (product.ratingDist[rating] || 0) + 1;
+        } catch (err) { console.warn('Product stats update failed:', err.message); }
+    }
+    // Update local cache
+    if (!window.productReviewsCache[productId]) window.productReviewsCache[productId] = [];
+    window.productReviewsCache[productId].unshift({ 
+        id: docRef.id, productId, name: review.name, rating: review.rating, 
+        text: review.text, date: new Date().toISOString() 
+    });
     return docRef;
 }
 
+// Reads stats from product doc only - no reviews needed!
 function calculateRatingStats(productId) {
-    const reviews = getProductReviews(productId);
-    if (reviews.length === 0) return { average: 0, total: 0, distribution: {5:0,4:0,3:0,2:0,1:0} };
-    const distribution = {5:0,4:0,3:0,2:0,1:0};
-    let sum = 0;
-    reviews.forEach(r => { const rt = parseInt(r.rating) || 0; sum += rt; if (distribution[rt] !== undefined) distribution[rt]++; });
-    return { average: (sum / reviews.length).toFixed(1), total: reviews.length, distribution };
+    const p = productsData.find(x => x.id === productId);
+    if (!p || !p.reviewCount) return { average: 0, total: 0, distribution: {5:0,4:0,3:0,2:0,1:0} };
+    const total = p.reviewCount || 0;
+    const sum = p.ratingSum || 0;
+    return {
+        average: total > 0 ? (sum / total).toFixed(1) : 0,
+        total: total,
+        distribution: p.ratingDist || {5:0,4:0,3:0,2:0,1:0}
+    };
 }
 
 function renderStars(rating) {
@@ -2485,7 +2523,6 @@ window.submitOrder = async function(event) {
             try { await window.fbAddDoc(window.fbCollection(window.db, "coupon_usage"), { code: appliedCoupon.code.toUpperCase(), phone: phone.replace(/[^0-9]/g, ''), orderId, discountAmount: discount, date: new Date().toISOString() }); markCouponUsedLocal(appliedCoupon.code); } catch (e) {}
         }
     } catch (fbErr) { console.error('Order save error:', fbErr); }
-    if (typeof window.trackPurchase === 'function') window.trackPurchase(totalAmount, cart);
     let productsText = '';
     cart.forEach((item, index) => {
         let priceStr = (typeof item.price === 'number') ? ('৳' + item.price) : 'TBD';
