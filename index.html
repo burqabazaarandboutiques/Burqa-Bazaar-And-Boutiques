@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Burqa Bazar And Boutiques | Premium Hijab, Burqa & Abaya Collection in Bangladesh</title>
 <meta name="description" content="Burqa Bazar And Boutiques — বাংলাদেশের সেরা অনলাইন শালীন ফ্যাশন ব্র্যান্ড।">
 <meta name="theme-color" content="#dfb15b">
@@ -16,7 +16,7 @@
 <!-- ⚡ ULTRA FAST BOOTSTRAP -->
 <script>
 window.FAST_CACHE = {
-    VERSION: 'v2026.9',
+    VERSION: 'v2026.2',
     PREFIX: 'bq_fast_',
     _mem: {},
     _key: function(k) { return this.PREFIX + k; },
@@ -26,7 +26,10 @@ window.FAST_CACHE = {
             const raw = localStorage.getItem(this._key(k));
             if (!raw) return fallback;
             const parsed = JSON.parse(raw);
-            if (parsed.__v && parsed.__v !== this.VERSION) { localStorage.removeItem(this._key(k)); return fallback; }
+            if (parsed.__v && parsed.__v !== this.VERSION) {
+                localStorage.removeItem(this._key(k));
+                return fallback;
+            }
             const data = parsed.__d !== undefined ? parsed.__d : parsed;
             this._mem[k] = data;
             return data;
@@ -37,63 +40,197 @@ window.FAST_CACHE = {
         try { localStorage.setItem(this._key(k), JSON.stringify({ __v: this.VERSION, __d: data, __t: Date.now() })); } catch(e) {}
     },
     remove: function(k) { delete this._mem[k]; try { localStorage.removeItem(this._key(k)); } catch(e) {} },
-    clearAll: function() { this._mem = {}; try { Object.keys(localStorage).forEach(k => { if (k.startsWith(this.PREFIX)) localStorage.removeItem(k); }); } catch(e) {} }
+    clearAll: function() {
+        this._mem = {};
+        try { Object.keys(localStorage).forEach(k => { if (k.startsWith(this.PREFIX)) localStorage.removeItem(k); }); } catch(e) {}
+    }
 };
 window.fcGet = (k, fb) => FAST_CACHE.get(k, fb);
 window.fcSet = (k, d) => FAST_CACHE.set(k, d);
 
+// ============================================================
+// 🔴 REALTIME SYNC SYSTEM — Admin update → Website instant
+// ============================================================
 window.REALTIME_SYNC = {
     channel: null,
+    listeners: {},
+    SYNC_KEYS: ['products', 'banners', 'homeCollections', 'faq', 'coupons', 'sizeCharts', 'pages', 'settings', 'reviews'],
+    
     init: function() {
+        // 1. BroadcastChannel — same browser, different tabs
         try {
             this.channel = new BroadcastChannel('bq_admin_sync');
             this.channel.onmessage = (e) => {
                 const { type, key, data } = e.data || {};
-                if (type === 'UPDATE' && key) this.handleUpdate(key, data);
+                if (type === 'UPDATE' && key) {
+                    console.log('🔄 BroadcastChannel update:', key);
+                    this.handleUpdate(key, data);
+                } else if (type === 'CLEAR_ALL') {
+                    console.log('🔄 BroadcastChannel clear all');
+                    FAST_CACHE.clearAll();
+                    this.handleUpdate('__ALL__', null);
+                }
             };
+            console.log('✅ BroadcastChannel ready');
+        } catch(e) { console.warn('BroadcastChannel not supported'); }
+        
+        // 2. Storage event — cross-tab fallback
+        window.addEventListener('storage', (e) => {
+            if (!e.key || !e.key.startsWith(FAST_CACHE.PREFIX)) return;
+            const rawKey = e.key.replace(FAST_CACHE.PREFIX, '');
+            if (rawKey.startsWith('__sync_')) {
+                const syncKey = rawKey.replace('__sync_', '');
+                console.log('🔄 Storage event sync:', syncKey);
+                // Force refresh from localStorage
+                delete FAST_CACHE._mem[syncKey];
+                this.handleUpdate(syncKey, null);
+            }
+        });
+        
+        // 3. Visibility change — when user returns to tab
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('👁️ Tab visible — checking for updates');
+                this.checkForUpdates();
+            }
+        });
+    },
+    
+    handleUpdate: function(key, data) {
+        // Directly apply updated data to UI
+        const s = window.settingsCache || {};
+        
+        if (key === 'products' || key === '__ALL__') {
+            const products = data || fcGet('products', []);
+            if (Array.isArray(products)) {
+                updateProductsData(products);
+                console.log('✅ Products updated:', products.length);
+            }
+        }
+        if (key === 'banners' || key === '__ALL__') {
+            const banners = data || fcGet('banners', []);
+            if (Array.isArray(banners)) {
+                window.bannersCache = banners;
+                renderBannerSlider();
+                console.log('✅ Banners updated:', banners.length);
+            }
+        }
+        if (key === 'homeCollections' || key === '__ALL__') {
+            const hc = data || fcGet('homeCollections', []);
+            if (Array.isArray(hc)) {
+                window.homeCollectionsCache = hc;
+                renderHomeCollections();
+                console.log('✅ Home Collections updated:', hc.length);
+            }
+        }
+        if (key === 'faq' || key === '__ALL__') {
+            const faq = data || fcGet('faq', []);
+            if (Array.isArray(faq)) {
+                window.faqCache = faq;
+                renderFAQ();
+                console.log('✅ FAQ updated:', faq.length);
+            }
+        }
+        if (key === 'coupons' || key === '__ALL__') {
+            const coupons = data || fcGet('coupons', []);
+            if (Array.isArray(coupons)) {
+                window.couponsCache = coupons;
+                renderHomeCoupons();
+                console.log('✅ Coupons updated:', coupons.length);
+            }
+        }
+        if (key === 'sizeCharts' || key === '__ALL__') {
+            const sc = data || fcGet('sizeCharts', {});
+            if (typeof sc === 'object') {
+                window.sizeChartsCache = sc;
+                console.log('✅ Size Charts updated');
+            }
+        }
+        if (key === 'pages' || key === '__ALL__') {
+            const pages = data || fcGet('pages', {});
+            if (typeof pages === 'object') {
+                window.pagesCache = pages;
+                const activePage = document.querySelector('.page-section.active-page');
+                if (activePage) {
+                    const pageId = activePage.id.replace('-section', '');
+                    if (['about','privacy','terms','return-policy','contact','track-order'].includes(pageId)) {
+                        applyPageContent(pageId);
+                    }
+                }
+                console.log('✅ Pages updated');
+            }
+        }
+        if (key === 'settings' || key === '__ALL__') {
+            const settings = data || fcGet('settings', null);
+            if (settings) {
+                window.settingsCache = { ...window.DEFAULT_SETTINGS, ...settings };
+                applySettingsToWebsite();
+                applyExtendedSettings();
+                console.log('✅ Settings updated');
+            }
+        }
+        if (key === 'reviews' || key === '__ALL__') {
+            const reviews = data || fcGet('reviews', {});
+            if (typeof reviews === 'object') {
+                window.reviewsCache = reviews;
+                // Refresh product details if open
+                const pd = document.getElementById('product-details-section');
+                if (pd && pd.classList.contains('active-page') && currentProductId) {
+                    openProductDetails(currentProductId);
+                }
+                console.log('✅ Reviews updated');
+            }
+        }
+    },
+    
+    // Called when tab becomes visible — silent Firebase check
+    checkForUpdates: async function() {
+        if (!window.db || !window.fbGetDocs) return;
+        try {
+            // Check settings doc for lastUpdate timestamp
+            if (window.fbGetDoc && window.fbDoc) {
+                const snap = await window.fbGetDoc(window.fbDoc(window.db, 'settings', 'store'));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const remoteUpdate = data.lastUpdate || data.updatedAt || 0;
+                    const localUpdate = fcGet('_lastUpdate', 0);
+                    if (remoteUpdate && remoteUpdate !== localUpdate) {
+                        console.log('🔄 Remote update detected — syncing all');
+                        fcSet('_lastUpdate', remoteUpdate);
+                        window.preloadEverything();
+                    }
+                }
+            }
         } catch(e) {}
     },
-    handleUpdate: function(key, data) {
-        if (key === 'products' || key === '__ALL__') updateProductsData(data || fcGet('products', []));
-        if (key === 'banners' || key === '__ALL__') { window.bannersCache = data || fcGet('banners', []); renderBannerSlider(); }
-        if (key === 'homeCollections' || key === '__ALL__') { window.homeCollectionsCache = data || fcGet('homeCollections', []); renderHomeCollections(); }
-        if (key === 'faq' || key === '__ALL__') { window.faqCache = data || fcGet('faq', []); renderFAQ(); }
-        if (key === 'coupons' || key === '__ALL__') { window.couponsCache = data || fcGet('coupons', []); renderHomeCoupons(); }
-        if (key === 'settings' || key === '__ALL__') { window.settingsCache = { ...window.DEFAULT_SETTINGS, ...(data || fcGet('settings', {})) }; applySettingsToWebsite(); applyExtendedSettings(); }
+    
+    // Called from Admin panel — broadcast to all tabs
+    broadcast: function(key, data) {
+        if (this.channel) {
+            this.channel.postMessage({ type: 'UPDATE', key, data });
+        }
+        // Also set a sync flag in localStorage (cross-tab)
+        try {
+            localStorage.setItem(FAST_CACHE.PREFIX + '__sync_' + key, Date.now().toString());
+            setTimeout(() => localStorage.removeItem(FAST_CACHE.PREFIX + '__sync_' + key), 500);
+        } catch(e) {}
+    },
+    
+    broadcastClearAll: function() {
+        if (this.channel) this.channel.postMessage({ type: 'CLEAR_ALL' });
     }
 };
-
-window.showSiteAnnouncement = function(message) {
-    let el = document.getElementById('site-announcement-banner');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'site-announcement-banner';
-        el.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:linear-gradient(135deg,#dfb15b,#9c7526);color:#0b0b0d;padding:15px 20px;z-index:999999;font-weight:700;font-size:15px;box-shadow:0 5px 20px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;gap:10px;transform:translateY(-100%);transition:transform 0.5s cubic-bezier(0.22,1,0.36,1);text-align:center;font-family:var(--font-body);';
-        document.body.appendChild(el);
-    }
-    el.innerHTML = `<i class="fas fa-bullhorn" style="font-size:20px;animation:swing 1s infinite alternate;"></i> <span style="max-width: 90%;">${message}</span>`;
-    if (!document.getElementById('announcement-style')) {
-        const style = document.createElement('style');
-        style.id = 'announcement-style';
-        style.innerHTML = `@keyframes swing { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }`;
-        document.head.appendChild(style);
-    }
-    el.style.transform = 'translateY(0)';
-    clearTimeout(window._siteAnnounceTimer);
-    window._siteAnnounceTimer = setTimeout(() => { el.style.transform = 'translateY(-100%)'; }, 7000);
-}
+window.syncBroadcast = (k, d) => REALTIME_SYNC.broadcast(k, d);
 </script>
 
 <style>
 :root { --primary-color: #dfb15b; --gold-color: #dfb15b; --secondary-color: #121214; --bg-color: #0b0b0d; --card-bg: rgba(22, 22, 26, 0.85); --text-color: #f3f3f6; --text-muted: #9e9ea6; --border-color: rgba(223, 177, 91, 0.2); --font-heading: 'Playfair Display', serif; --font-body: 'Poppins', sans-serif; --ok-color: #22c55e; --warn-color: #f59e0b; --bad-color: #ef4444; }
 [data-theme="light"] { --primary-color: #9c7526; --gold-color: #9c7526; --secondary-color: #eaeaea; --bg-color: #f7f7f9; --card-bg: rgba(255,255,255,0.9); --text-color: #1a1a1e; --text-muted: #66666d; --border-color: rgba(156,117,38,0.25); }
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-body); }
-html { overflow-x: hidden; width: 100%; max-width: 100%; }
 h1,h2,h3,h4,.brand-title,.welcome-title,.collections-header,.category-title-label,.details-title,.product-title { font-family: var(--font-heading); }
-body { background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; padding-bottom: 70px; background-image: radial-gradient(circle at 50% 0%, rgba(223,177,91,0.05) 0%, transparent 60%); overflow-x: hidden; width: 100%; max-width: 100%; -webkit-font-smoothing: antialiased; }
+body { background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; padding-bottom: 70px; background-image: radial-gradient(circle at 50% 0%, rgba(223,177,91,0.05) 0%, transparent 60%); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
 a { text-decoration: none; color: inherit; }
 .brand-title,.welcome-title,.collections-header,.category-title-label { color: var(--gold-color); }
-
 #reading-progress { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg,#ff007f,#7928ca,#ffb15b,#00dfd8); z-index: 9999; }
 
 #global-loader { position: fixed; inset: 0; background: linear-gradient(135deg,#0b0b0d 0%,#1a1a1e 100%); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; transition: opacity .15s; }
@@ -106,8 +243,12 @@ a { text-decoration: none; color: inherit; }
 @keyframes loaderPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.08);opacity:.85;} }
 @keyframes loaderBar { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
 
-#sync-toast { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; padding: 12px 24px; border-radius: 30px; z-index: 100000; font-weight: 700; font-size: 14px; box-shadow: 0 8px 25px rgba(34,197,94,.4); opacity: 0; transition: all .4s cubic-bezier(.22,1,.36,1); display: flex; align-items: center; gap: 8px; }
-#sync-toast.show { top: 20px; opacity: 1; }
+.skeleton-shimmer { background: linear-gradient(90deg,rgba(223,177,91,.05) 25%,rgba(223,177,91,.15) 50%,rgba(223,177,91,.05) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 12px; }
+@keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+/* 🔴 Realtime sync toast */
+#sync-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; padding: 12px 24px; border-radius: 30px; z-index: 100000; font-weight: 700; font-size: 14px; box-shadow: 0 8px 25px rgba(34,197,94,.4); opacity: 0; transition: all .4s cubic-bezier(.22,1,.36,1); display: flex; align-items: center; gap: 8px; }
+#sync-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
 header.shrunk .header-container { padding: 8px 15px; }
 header.shrunk .header-logo-circle { width: 30px; height: 30px; }
@@ -261,6 +402,28 @@ header.shrunk .brand-title { font-size: 11px; }
 .review-count { font-size: 10px; opacity: .7; }
 .product-category-tag { font-size: 10px; text-transform: uppercase; color: var(--gold-color); font-weight: 700; letter-spacing: .5px; }
 
+.size-guide-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(59,130,246,.12); border: 1.5px solid #3b82f6; color: #60a5fa; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.size-chart-modal { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 8500; display: none; align-items: center; justify-content: center; padding: 15px; }
+.size-chart-modal.active { display: flex; }
+.size-chart-box { background: var(--card-bg); border: 1.5px solid var(--gold-color); border-radius: 18px; padding: 25px 20px; max-width: 620px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; }
+.size-chart-header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-color); position: relative; }
+.size-chart-header h2 { color: var(--gold-color); font-size: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.size-chart-close { position: absolute; top: -8px; right: -5px; width: 34px; height: 34px; border-radius: 50%; background: transparent; border: 1.5px solid var(--bad-color); color: var(--bad-color); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.size-unit-toggle { display: flex; justify-content: center; gap: 8px; margin-bottom: 18px; }
+.size-unit-btn { padding: 6px 20px; border-radius: 20px; background: var(--bg-color); border: 1.5px solid var(--border-color); color: var(--text-color); font-size: 12px; font-weight: 700; cursor: pointer; }
+.size-unit-btn.active { background: var(--gold-color); color: #0b0b0d; }
+.size-chart-table-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 18px; }
+.size-chart-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.size-chart-table thead { background: linear-gradient(135deg,rgba(223,177,91,.15),rgba(223,177,91,.05)); }
+.size-chart-table th { padding: 12px 8px; text-align: center; color: var(--gold-color); font-weight: 800; font-size: 12px; border-bottom: 2px solid var(--border-color); }
+.size-chart-table td { padding: 11px 8px; text-align: center; color: var(--text-color); font-weight: 600; border-bottom: 1px solid var(--border-color); }
+.size-chart-table td:first-child { font-weight: 800; color: var(--gold-color); font-size: 14px; }
+.size-tips { background: linear-gradient(135deg,rgba(59,130,246,.1),rgba(59,130,246,.03)); border: 1px solid rgba(59,130,246,.35); border-radius: 10px; padding: 14px 16px; }
+.size-tips-title { font-size: 13px; font-weight: 800; color: #60a5fa; margin-bottom: 8px; }
+.size-tips ul { list-style: none; padding: 0; }
+.size-tips li { font-size: 12px; color: var(--text-muted); line-height: 1.7; padding-left: 20px; position: relative; }
+.size-tips li::before { content: '✓'; position: absolute; left: 0; color: var(--ok-color); font-weight: 900; }
+
 .rating-summary { display: flex; align-items: center; gap: 15px; padding: 15px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; margin: 15px 0; }
 .rating-average-box { text-align: center; min-width: 70px; padding-right: 15px; border-right: 1px solid var(--border-color); }
 .rating-average { font-size: 32px; font-weight: 800; color: var(--gold-color); line-height: 1; }
@@ -327,8 +490,8 @@ header.shrunk .brand-title { font-size: 11px; }
 .page-content-box .info-card { background: linear-gradient(135deg,rgba(223,177,91,.08) 0%,rgba(223,177,91,.03) 100%); border: 1px solid var(--border-color); border-left: 4px solid var(--gold-color); padding: 18px 20px; border-radius: 10px; margin: 15px 0; }
 .page-content-box .policy-footer { text-align: center; margin-top: 35px; padding: 25px 20px; background: linear-gradient(135deg,rgba(223,177,91,.05) 0%,transparent 100%); border-top: 1px dashed var(--border-color); border-bottom: 1px dashed var(--border-color); border-radius: 10px; }
 
-header { background-color: var(--secondary-color); position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid var(--border-color); width: 100%; max-width: 100%; }
-.header-container { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; width: 100%; }
+header { background-color: var(--secondary-color); position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid var(--border-color); }
+.header-container { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; }
 .header-left { display: flex; align-items: center; gap: 12px; }
 .menu-icon, .header-right-icons i { font-size: 20px; color: var(--text-color); cursor: pointer; }
 .header-brand { display: flex; align-items: center; gap: 8px; }
@@ -344,7 +507,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .wishlist-icon-wrapper { position: relative; cursor: pointer; }
 .wishlist-icon-wrapper i { color: #ff007f; }
 
-.sidebar { position: fixed; top: 0; left: -280px; width: 280px; max-width: 80vw; height: 100%; background-color: var(--secondary-color); z-index: 3000; transition: left .3s ease; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); }
+.sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background-color: var(--secondary-color); z-index: 3000; transition: left .3s ease; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); }
 .sidebar.active { left: 0; }
 .sidebar-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
 .close-sidebar { font-size: 20px; cursor: pointer; }
@@ -356,11 +519,11 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .theme-btn { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.6); z-index: 2500; display: none; }
 .overlay.active { display: block; }
-.search-section { padding: 12px 15px; width: 100%; }
+.search-section { padding: 12px 15px; }
 .search-box { position: relative; width: 100%; }
 .search-box input { width: 100%; padding: 12px 15px 12px 40px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); font-size: 14px; outline: none; }
 .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--gold-color); }
-.container { padding: 15px; max-width: 1200px; margin: auto; width: 100%; overflow-x: hidden; }
+.container { padding: 15px; max-width: 1200px; margin: auto; }
 .welcome-section { text-align: center; margin: 15px 0 25px; }
 .welcome-title { font-size: 16px; margin-bottom: 18px; text-transform: uppercase; }
 .center-logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
@@ -370,11 +533,11 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .collection-card { background: var(--card-bg); border-radius: 14px; overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 25px; cursor: pointer; }
 .collection-card img { width: 100%; height: auto; display: block; }
 .category-title-label { text-align: center; font-size: 18px; font-weight: 700; padding: 12px 10px; letter-spacing: .5px; text-transform: uppercase; }
-.page-section { display: none; padding: 20px 0; width: 100%; }
+.page-section { display: none; padding: 20px 0; }
 .page-section.active-page { display: block; }
-.product-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 15px; margin-top: 15px; width: 100%; }
+.product-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 15px; margin-top: 15px; }
 @media (min-width: 768px) { .product-grid { grid-template-columns: repeat(3,1fr); gap: 20px; } }
-.product-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; position: relative; width: 100%; }
+.product-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; position: relative; }
 .product-img-box { width: 100%; height: 190px; overflow: hidden; background: #000; position: relative; }
 .product-img-box img { width: 100%; height: 100%; object-fit: cover; }
 .product-info { padding: 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
@@ -403,7 +566,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 #image-modal.active { display: flex; }
 #image-modal img { max-width: 95%; max-height: 90vh; border-radius: 10px; border: 2px solid var(--gold-color); object-fit: contain; }
 .modal-close-btn { position: absolute; top: 25px; right: 25px; background: var(--card-bg); color: var(--gold-color); border: 1px solid var(--gold-color); width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 9100; }
-.page-content-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 35px 25px; border-radius: 16px; text-align: left; line-height: 1.8; max-width: 950px; margin: auto; width: 100%; overflow-x: hidden; }
+.page-content-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 35px 25px; border-radius: 16px; text-align: left; line-height: 1.8; max-width: 950px; margin: auto; }
 .page-content-box h2 { color: var(--gold-color); border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 25px; font-size: 24px; text-align: center; text-transform: uppercase; }
 .form-group { margin-bottom: 15px; text-align: left; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--gold-color); }
@@ -420,8 +583,8 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .qty-control { display: flex; align-items: center; gap: 6px; background: var(--bg-color); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 6px; }
 .qty-btn { background: var(--card-bg); color: var(--gold-color); border: 1px solid var(--border-color); width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; align-items: center; justify-content: center; }
 .remove-item-btn { background: #ff4d4d; color: #fff; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
-.site-footer { background-color: var(--secondary-color); border-top: 1px solid var(--border-color); padding: 40px 20px 30px 20px; margin-top: 40px; width: 100%; }
-.footer-container { max-width: 1200px; margin: auto; display: flex; flex-direction: column; gap: 30px; width: 100%; }
+.site-footer { background-color: var(--secondary-color); border-top: 1px solid var(--border-color); padding: 40px 20px 30px 20px; margin-top: 40px; }
+.footer-container { max-width: 1200px; margin: auto; display: flex; flex-direction: column; gap: 30px; }
 .footer-section h4 { color: var(--gold-color); font-size: 14px; letter-spacing: 1.5px; margin-bottom: 18px; text-transform: uppercase; }
 .footer-links { list-style: none; display: flex; flex-direction: column; gap: 14px; }
 .footer-links li a { color: var(--text-color); font-size: 14px; }
@@ -431,7 +594,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .bottom-nav-item { text-align: center; color: var(--text-muted); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; cursor: pointer; background: none; border: none; outline: none; }
 .bottom-nav-item i { font-size: 18px; }
 .bottom-nav-item.active { color: var(--gold-color); }
-#custom-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--card-bg); border: 1px solid var(--gold-color); padding: 12px 20px; border-radius: 30px; z-index: 6000; opacity: 0; visibility: hidden; transition: all .3s ease; width: max-content; max-width: 90%; text-align: center; }
+#custom-toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--card-bg); border: 1px solid var(--gold-color); padding: 12px 20px; border-radius: 30px; z-index: 6000; opacity: 0; visibility: hidden; transition: all .3s ease; }
 #custom-toast.toast-visible { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 .toast-content { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
 #mini-cart-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,.6); z-index: 4000; opacity: 0; visibility: hidden; transition: all .3s ease; }
@@ -462,8 +625,8 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 .newsletter-section { background: linear-gradient(135deg,rgba(223,177,91,.12) 0%,rgba(223,177,91,.03) 100%); border: 1px solid var(--border-color); border-radius: 14px; padding: 25px 20px; text-align: center; margin-top: 10px; }
 .newsletter-section h4 { color: var(--gold-color); font-size: 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .newsletter-section p { font-size: 13px; color: var(--text-muted); margin-bottom: 15px; }
-.newsletter-form { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; flex-wrap: wrap; justify-content: center; }
-.newsletter-form input { flex: 1; min-width: 180px; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 25px; color: var(--text-color); font-size: 13px; outline: none; }
+.newsletter-form { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
+.newsletter-form input { flex: 1; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 25px; color: var(--text-color); font-size: 13px; outline: none; }
 .newsletter-form button { padding: 10px 20px; background: var(--gold-color); color: #0b0b0d; border: none; border-radius: 25px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .social-icons-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
 .social-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; cursor: pointer; text-decoration: none; }
@@ -479,6 +642,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     .gallery-main { height: 340px; }
     .gallery-nav-btn { width: 34px; height: 34px; font-size: 13px; }
     .gallery-thumb { width: 58px; height: 58px; }
+    .size-chart-box { padding: 20px 15px; }
     .faq-hero h2 { font-size: 22px; }
     .faq-question { padding: 14px 15px; }
 }
@@ -486,8 +650,10 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </head>
 <body>
 
+<!-- SYNC TOAST (realtime update notification) -->
 <div id="sync-toast"><i class="fas fa-sync-alt fa-spin"></i> <span>Website update হয়েছে!</span></div>
 
+<!-- GLOBAL LOADER -->
 <div id="global-loader">
     <div class="loader-logo"><img src="https://i.ibb.co/zW2qGsmk/file-00000000e71881f4ada02fa6792ea317.png" alt="Loading"></div>
     <div class="loader-bar"><div class="loader-bar-inner"></div></div>
@@ -497,6 +663,32 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 <div id="reading-progress"></div>
 <button id="back-to-top" onclick="scrollToTop()"><i class="fas fa-arrow-up"></i></button>
 
+<!-- SIZE CHART MODAL -->
+<div class="size-chart-modal" id="size-chart-modal" onclick="closeSizeChart(event)">
+    <div class="size-chart-box" onclick="event.stopPropagation()">
+        <div class="size-chart-header">
+            <button class="size-chart-close" onclick="closeSizeChart()"><i class="fas fa-times"></i></button>
+            <h2><i class="fas fa-ruler"></i> <span id="size-chart-title">Size Guide</span></h2>
+            <p id="size-chart-subtitle">সঠিক সাইজ বেছে নিন — আরামে থাকুন</p>
+        </div>
+        <div class="size-unit-toggle">
+            <button class="size-unit-btn active" data-unit="cm" onclick="switchSizeUnit('cm')">সেন্টিমিটার (CM)</button>
+            <button class="size-unit-btn" data-unit="inch" onclick="switchSizeUnit('inch')">ইঞ্চি (Inch)</button>
+        </div>
+        <div class="size-chart-table-wrap"><table class="size-chart-table" id="size-chart-table"></table></div>
+        <div class="size-tips">
+            <div class="size-tips-title"><i class="fas fa-lightbulb"></i> সাইজ মাপার টিপস</div>
+            <ul>
+                <li>মাপার সময় টাইট টেপ ব্যবহার করবেন না — আলগা রাখুন</li>
+                <li>বুকের সবচেয়ে চওড়া অংশ থেকে বুকের মাপ নিন</li>
+                <li>কোমরের সবচেয়ে সরু অংশ থেকে কোমরের মাপ নিন</li>
+                <li>কোনো সন্দেহ থাকলে বড় সাইজ বেছে নিন</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- VIDEO MODAL -->
 <div id="video-modal" onclick="closeVideoModal(event)">
     <div class="video-modal-content" onclick="event.stopPropagation()">
         <button class="video-modal-close" onclick="closeVideoModal()"><i class="fas fa-times"></i></button>
@@ -504,6 +696,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
+<!-- MINI CART -->
 <div id="mini-cart-overlay" onclick="closeMiniCart()"></div>
 <div id="mini-cart-sidebar">
     <div class="mini-cart-header">
@@ -520,11 +713,13 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
+<!-- IMAGE ZOOM -->
 <div id="image-modal" onclick="closeImageModal()">
     <button class="modal-close-btn" onclick="closeImageModal()">&times;</button>
     <img id="modal-zoomed-img" src="" alt="Zoomed">
 </div>
 
+<!-- SHARE MODAL -->
 <div id="share-modal" onclick="closeShareModal(event)">
     <div class="share-modal-content" onclick="event.stopPropagation()">
         <h3>🔗 Share This Product</h3>
@@ -538,12 +733,13 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     </div>
 </div>
 
+<!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <h3 class="brand-title dynamic-store-name">Loading...</h3>
         <i class="fas fa-times close-sidebar" id="closeSidebar"></i>
     </div>
-    <ul class="sidebar-menu" id="sidebar-menu">
+    <ul class="sidebar-menu">
         <li><a href="#" onclick="switchTab('home')"><i class="fas fa-home"></i> Home</a></li>
         <li><a href="#" onclick="switchTab('shop')"><i class="fas fa-shopping-bag"></i> Shop</a></li>
         <li><a href="#" onclick="switchTab('wishlist')"><i class="fas fa-heart" style="color:#ff007f;"></i> Wishlist</a></li>
@@ -562,6 +758,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </div>
 <div class="overlay" id="overlay"></div>
 
+<!-- HEADER -->
 <header id="main-header">
     <div class="header-container">
         <div class="header-left">
@@ -587,6 +784,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 </div>
 
 <div class="container">
+    <!-- HOME -->
     <div id="home-section" class="page-section active-page">
         <div class="welcome-section">
             <h1 class="welcome-title dynamic-welcome-text"></h1>
@@ -608,6 +806,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div id="home-collections-container"></div>
     </div>
 
+    <!-- SHOP -->
     <div id="shop-section" class="page-section">
         <h2 id="shop-title" style="margin-bottom: 5px;">Shop All Collections</h2>
         <p id="shop-desc" style="color: var(--text-muted); margin-bottom: 15px;">Explore our exclusive range of premium hijabs, burqas, and abayas.</p>
@@ -622,6 +821,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div class="pagination-wrap" id="pagination-wrap" style="display:none;"></div>
     </div>
 
+    <!-- WISHLIST -->
     <div id="wishlist-section" class="page-section">
         <div class="wishlist-header">
             <h2><i class="fas fa-heart" style="color:#ff007f;"></i> My Wishlist <span class="wishlist-count" id="wishlist-page-count">0</span></h2>
@@ -637,6 +837,7 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div id="wishlist-container"></div>
     </div>
 
+    <!-- FAQ -->
     <div id="faq-section" class="page-section">
         <div class="faq-hero">
             <div class="faq-hero-icon"><i class="fas fa-question"></i></div>
@@ -663,20 +864,27 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         </div>
     </div>
 
+    <!-- PRODUCT DETAILS -->
     <div id="product-details-section" class="page-section">
         <div class="product-details-container" id="product-details-content"></div>
     </div>
 
+    <!-- ABOUT -->
     <div id="about-section" class="page-section"><div class="page-content-box" id="about-content-box"></div></div>
+    <!-- PRIVACY -->
     <div id="privacy-section" class="page-section"><div class="page-content-box" id="privacy-content-box"></div></div>
+    <!-- TERMS -->
     <div id="terms-section" class="page-section"><div class="page-content-box" id="terms-content-box"></div></div>
+    <!-- RETURN POLICY -->
     <div id="return-policy-section" class="page-section"><div class="page-content-box" id="return-policy-content-box"></div></div>
 
+    <!-- CONTACT -->
     <div id="contact-section" class="page-section">
         <div class="page-content-box" id="contact-content-box"></div>
         <div class="premium-contact-grid dynamic-contact-icons-container" style="margin-top: 25px;"></div>
     </div>
 
+    <!-- TRACK ORDER -->
     <div id="track-order-section" class="page-section">
         <div style="background: linear-gradient(135deg, rgba(223,177,91,.15), rgba(223,177,91,.03)); border: 1px solid var(--gold-color); border-radius: 14px; padding: 25px 20px; margin-bottom: 25px;">
             <h3 style="font-family: 'Playfair Display', serif; color: var(--gold-color); font-size: 18px; margin-bottom: 15px; text-align: center;">📦 অর্ডার ট্র্যাক করুন</h3>
@@ -692,12 +900,14 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
         <div class="page-content-box" id="track-order-content-box"></div>
     </div>
 
+    <!-- CART -->
     <div id="cart-section" class="page-section">
         <h2 style="margin-bottom: 15px;"><i class="fas fa-shopping-cart"></i> Your Shopping Cart & Checkout</h2>
         <div id="cart-items-container" style="background: var(--card-bg); border: 1px solid var(--border-color); padding: 25px 20px; border-radius: 12px; margin-top: 20px; text-align: left;"></div>
     </div>
 </div>
 
+<!-- FOOTER -->
 <footer class="site-footer">
     <div class="footer-container">
         <div class="footer-section">
@@ -761,9 +971,10 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 
 <div id="custom-toast"><div class="toast-content"><span class="toast-icon">✨</span><p id="toast-message">Successfully added to cart!</p></div></div>
 
+<!-- ⚡ FIREBASE MODULE + REALTIME SYNC -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { initializeFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, doc, getDoc, onSnapshot, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBz6nILSzcvSofF9iyPt-h3ffseEXTwgnA",
@@ -775,7 +986,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+const db = getFirestore(app);
 window.db = db;
 window.fbAddDoc = addDoc;
 window.fbCollection = collection;
@@ -786,8 +997,6 @@ window.fbOnSnapshot = onSnapshot;
 window.fbQuery = query;
 window.fbOrderBy = orderBy;
 window.fbWhere = where;
-window.fbUpdateDoc = updateDoc;
-window.fbIncrement = increment;
 
 window.DEFAULT_SETTINGS = {
     storeName: 'Burqa Bazar and Boutiques',
@@ -797,12 +1006,15 @@ window.DEFAULT_SETTINGS = {
     whatsapp: '8801832140613',
     email: 'burqabazaarandboutiques@gmail.com',
     address: 'ফেনী সওদাগর পট্টি, সওদাগর টাওয়ার, ২য় তলা, দোকান নং ০৩',
+    bkash: '01832140613', nagad: '01832140613',
     deliveryInside: 60, deliveryOutside: 130,
+    facebook: '', instagram: '', youtube: '', tiktok: '',
     logoUrl: 'https://i.ibb.co/zW2qGsmk/file-00000000e71881f4ada02fa6792ea317.png',
     copyrightText: '© 2026 Burqa Bazar and Boutiques. All rights reserved.',
-    contactIcons: [], paymentNumbers: [], banks: [], couriers: []
+    contactIcons: [], paymentMethods: [], couriers: []
 };
 
+// ⚡ Silent loaders — no UI blocking
 async function loadCollection(colName, docId, cacheKey) {
     try {
         let data;
@@ -816,24 +1028,28 @@ async function loadCollection(colName, docId, cacheKey) {
                 applySettingsToWebsite();
                 applyExtendedSettings();
             }
-            if (data && cacheKey === 'categories') {
-                window.categoriesCache = data.list || [];
-                renderDynamicCategories();
-            }
         } else {
             const snap = await getDocs(collection(db, colName));
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             if (colName === 'products') arr.sort((a,b) => (parseInt(a.id)||0)-(parseInt(b.id)||0));
             if (colName === 'banners') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             if (colName === 'homeCollections') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             if (colName === 'faq') arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
+            if (colName === 'reviews') {
+                const obj = {};
+                arr.forEach(r => { const pid = r.productId; if (pid === undefined || pid === null) return; if (!obj[pid]) obj[pid] = []; obj[pid].push(r); });
+                fcSet(cacheKey, obj);
+                window.reviewsCache = obj;
+                return;
+            }
             fcSet(cacheKey, arr);
             if (cacheKey === 'products') { window.productsCache = arr; updateProductsData(arr); }
             if (cacheKey === 'banners') { window.bannersCache = arr; renderBannerSlider(); }
             if (cacheKey === 'homeCollections') { window.homeCollectionsCache = arr; renderHomeCollections(); }
             if (cacheKey === 'faq') { window.faqCache = arr; renderFAQ(); }
             if (cacheKey === 'coupons') { window.couponsCache = arr; renderHomeCoupons(); }
+            if (cacheKey === 'sizeCharts') { const obj = {}; arr.forEach(s => obj[s.id] = s); window.sizeChartsCache = obj; fcSet(cacheKey, obj); }
         }
     } catch(e) { console.warn('⚠️ Load failed:', colName, e.message); }
 }
@@ -851,103 +1067,122 @@ async function loadPages() {
 window.preloadEverything = async function() {
     Promise.allSettled([
         loadCollection('settings', 'store', 'settings'),
-        loadCollection('settings', 'categories', 'categories'),
         loadCollection('products', null, 'products'),
         loadCollection('banners', null, 'banners'),
         loadCollection('homeCollections', null, 'homeCollections'),
         loadCollection('faq', null, 'faq'),
         loadCollection('coupons', null, 'coupons'),
+        loadCollection('sizeCharts', null, 'sizeCharts'),
+        loadCollection('reviews', null, 'reviews'),
         loadPages()
     ]).then(() => console.log('✅ Background sync complete'));
 };
 
+// ⚡ INSTANT LOAD FROM CACHE
 window.instantLoadFromCache = function() {
     const cachedSettings = fcGet('settings', null);
-    if (cachedSettings) window.settingsCache = { ...window.DEFAULT_SETTINGS, ...cachedSettings };
-    else window.settingsCache = { ...window.DEFAULT_SETTINGS };
+    if (cachedSettings) {
+        window.settingsCache = { ...window.DEFAULT_SETTINGS, ...cachedSettings };
+    } else {
+        window.settingsCache = { ...window.DEFAULT_SETTINGS };
+    }
     applySettingsToWebsite();
     applyExtendedSettings();
     
     const cachedProducts = fcGet('products', null);
     if (cachedProducts && Array.isArray(cachedProducts)) updateProductsData(cachedProducts);
-    
     const cachedBanners = fcGet('banners', null);
     if (cachedBanners && Array.isArray(cachedBanners)) { window.bannersCache = cachedBanners; renderBannerSlider(); }
-    
     const cachedHC = fcGet('homeCollections', null);
     if (cachedHC && Array.isArray(cachedHC)) { window.homeCollectionsCache = cachedHC; renderHomeCollections(); }
-    
     const cachedFaq = fcGet('faq', null);
     if (cachedFaq && Array.isArray(cachedFaq)) { window.faqCache = cachedFaq; renderFAQ(); }
-    
     const cachedPages = fcGet('pages', null);
     if (cachedPages && typeof cachedPages === 'object') window.pagesCache = cachedPages;
-    
     const cachedCoupons = fcGet('coupons', null);
     if (cachedCoupons && Array.isArray(cachedCoupons)) { window.couponsCache = cachedCoupons; renderHomeCoupons(); }
-    
-    const cachedCats = fcGet('categories', null);
-    if (cachedCats && Array.isArray(cachedCats)) { window.categoriesCache = cachedCats; renderDynamicCategories(); }
+    const cachedSC = fcGet('sizeCharts', null);
+    if (cachedSC && typeof cachedSC === 'object') window.sizeChartsCache = cachedSC;
+    const cachedReviews = fcGet('reviews', null);
+    if (cachedReviews && typeof cachedReviews === 'object') window.reviewsCache = cachedReviews;
 };
 
+// 🔴 REALTIME LISTENERS — Admin update = instant website update
 window.attachRealtimeListeners = function() {
     if (!window.fbOnSnapshot) { console.warn('onSnapshot not available'); return; }
+    console.log('🔴 Attaching realtime listeners...');
     
+    // 1. Products realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'products'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.id)||0)-(parseInt(b.id)||0));
             fcSet('products', arr);
             window.productsCache = arr;
             updateProductsData(arr);
+            console.log('🔴 Products live update:', arr.length);
+            window.showSyncToast();
         }, (err) => console.warn('Products listener error:', err.message));
     } catch(e) {}
     
+    // 2. Banners realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'banners'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             const active = arr.filter(b => b.active !== false);
             fcSet('banners', active);
             window.bannersCache = active;
             renderBannerSlider();
+            console.log('🔴 Banners live update');
+            window.showSyncToast();
         }, (err) => console.warn('Banners listener error:', err.message));
     } catch(e) {}
     
+    // 3. Home Collections realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'homeCollections'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             const active = arr.filter(x => x.enabled !== false).sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             fcSet('homeCollections', active);
             window.homeCollectionsCache = active;
             renderHomeCollections();
+            console.log('🔴 Home collections live update');
+            window.showSyncToast();
         }, (err) => console.warn('HomeCollections listener error:', err.message));
     } catch(e) {}
     
+    // 4. FAQ realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'faq'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             arr.sort((a,b) => (parseInt(a.order)||99)-(parseInt(b.order)||99));
             fcSet('faq', arr);
             window.faqCache = arr;
             renderFAQ();
+            console.log('🔴 FAQ live update');
+            window.showSyncToast();
         }, (err) => console.warn('FAQ listener error:', err.message));
     } catch(e) {}
     
+    // 5. Coupons realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'coupons'), (snap) => {
             const arr = [];
-            snap.forEach(d => arr.push({ docId: d.id, ...d.data() }));
+            snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             fcSet('coupons', arr);
             window.couponsCache = arr;
             renderHomeCoupons();
+            console.log('🔴 Coupons live update');
+            window.showSyncToast();
         }, (err) => console.warn('Coupons listener error:', err.message));
     } catch(e) {}
     
+    // 6. Settings realtime
     try {
         window.fbOnSnapshot(window.fbDoc(window.db, 'settings', 'store'), (snap) => {
             if (snap.exists()) {
@@ -957,20 +1192,13 @@ window.attachRealtimeListeners = function() {
                 window.settingsCache = merged;
                 applySettingsToWebsite();
                 applyExtendedSettings();
+                console.log('🔴 Settings live update');
+                window.showSyncToast();
             }
         }, (err) => console.warn('Settings listener error:', err.message));
     } catch(e) {}
-
-    try {
-        window.fbOnSnapshot(window.fbDoc(window.db, 'settings', 'categories'), (snap) => {
-            if (snap.exists() && Array.isArray(snap.data().list)) {
-                window.categoriesCache = snap.data().list;
-                fcSet('categories', window.categoriesCache);
-                renderDynamicCategories();
-            }
-        }, (err) => console.warn('Categories listener error:', err.message));
-    } catch(e) {}
     
+    // 7. Pages realtime
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'pages'), (snap) => {
             const obj = {};
@@ -984,23 +1212,57 @@ window.attachRealtimeListeners = function() {
                     applyPageContent(pageId);
                 }
             }
+            console.log('🔴 Pages live update');
+            window.showSyncToast();
         }, (err) => console.warn('Pages listener error:', err.message));
     } catch(e) {}
-
+    
+    // 8. Size Charts realtime
     try {
-        window.fbOnSnapshot(window.fbCollection(window.db, 'site_notifications'), (snap) => {
-            snap.docChanges().forEach((change) => {
-                if (change.type === 'added') {
-                    const data = change.doc.data();
-                    if (data.createdAt && (Date.now() - data.createdAt < 30000)) {
-                        window.showSiteAnnouncement(data.message);
-                    }
-                }
-            });
-        }, (err) => console.warn('Site Notifications listener error:', err.message));
+        window.fbOnSnapshot(window.fbCollection(window.db, 'sizeCharts'), (snap) => {
+            const obj = {};
+            snap.forEach(d => { obj[d.id] = d.data(); });
+            fcSet('sizeCharts', obj);
+            window.sizeChartsCache = obj;
+            console.log('🔴 Size charts live update');
+        }, (err) => console.warn('SizeCharts listener error:', err.message));
     } catch(e) {}
+    
+    // 9. Reviews realtime (all reviews)
+    try {
+        window.fbOnSnapshot(window.fbCollection(window.db, 'reviews'), (snap) => {
+            const obj = {};
+            snap.forEach(d => {
+                const data = d.data();
+                const pid = data.productId;
+                if (pid === undefined || pid === null) return;
+                if (!obj[pid]) obj[pid] = [];
+                obj[pid].push({ id: d.id, ...data });
+            });
+            fcSet('reviews', obj);
+            window.reviewsCache = obj;
+            // Refresh open product details
+            const pd = document.getElementById('product-details-section');
+            if (pd && pd.classList.contains('active-page') && currentProductId) {
+                openProductDetails(currentProductId);
+            }
+            console.log('🔴 Reviews live update');
+        }, (err) => console.warn('Reviews listener error:', err.message));
+    } catch(e) {}
+    
+    console.log('✅ All realtime listeners attached');
 };
 
+// 🔔 Sync toast notification
+window.showSyncToast = function() {
+    const toast = document.getElementById('sync-toast');
+    if (!toast) return;
+    toast.classList.add('show');
+    clearTimeout(window._syncToastTimer);
+    window._syncToastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+};
+
+// ⚡ BOOT
 window.bootWebsite = function() {
     const t0 = performance.now();
     instantLoadFromCache();
@@ -1011,9 +1273,12 @@ window.bootWebsite = function() {
         const loader = document.getElementById('global-loader');
         if (loader) loader.classList.add('hidden');
     }, 150);
+    document.body.classList.add('content-ready');
     
+    // Background sync
     setTimeout(() => {
         window.preloadEverything();
+        // Attach realtime listeners after initial load
         setTimeout(() => window.attachRealtimeListeners(), 1500);
     }, 100);
 };
@@ -1027,7 +1292,11 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<!-- ⚡ MAIN SCRIPT -->
 <script>
+// ============================================================
+// GLOBAL STATE
+// ============================================================
 let productsData = [];
 let cart = JSON.parse(localStorage.getItem('burqa_cart')) || [];
 let wishlist = JSON.parse(localStorage.getItem('burqa_wishlist')) || [];
@@ -1043,6 +1312,8 @@ let isApplyingCoupon = false;
 let appliedCoupon = null;
 let discountAmount = 0;
 let wishlistSortMode = 'added';
+let sizeChartUnit = 'cm';
+let currentSizeChartCategory = 'default';
 let faqFilterCategory = 'all';
 let openFAQIndex = null;
 let currentGalleryImages = [];
@@ -1056,9 +1327,9 @@ let bannerAutoSlideTimer = null;
 const BANNER_AUTO_SLIDE_MS = 5000;
 let bannerSwipeStartX = 0, bannerSwipeEndX = 0, bannerSwipeAttached = false;
 
-// Per-product reviews cache (loaded only when product detail opens)
-window.productReviewsCache = window.productReviewsCache || {};
-
+// ============================================================
+// URL EXTRACTOR
+// ============================================================
 function extractUrl(str) {
     if (!str || typeof str !== 'string') return '';
     const t = str.trim();
@@ -1068,6 +1339,9 @@ function extractUrl(str) {
     return '';
 }
 
+// ============================================================
+// APPLY SETTINGS
+// ============================================================
 window.applySettingsToWebsite = function() {
     const s = window.settingsCache || window.DEFAULT_SETTINGS;
     if (s.pageTitle) document.title = s.pageTitle;
@@ -1137,21 +1411,9 @@ window.renderContactIconsOnWebsite = function() {
     containers.forEach(container => { container.innerHTML = html; });
 };
 
-window.renderDynamicCategories = function() {
-    const container = document.getElementById('category-filter-bar');
-    if (!container) return;
-    let cats = window.categoriesCache || ['Hijab Collection', 'Burqa Collection', 'Abaya Collection'];
-    let html = `<button class="filter-chip active" data-cat="all" onclick="filterCategory('all')"><i class="fas fa-th-large"></i> All <span class="count" id="count-all">0</span></button>`;
-    cats.forEach((cat, i) => {
-        let icon = '📁';
-        if(cat.toLowerCase().includes('hijab')) icon = '🌷';
-        else if(cat.toLowerCase().includes('burqa')) icon = '🖤';
-        else if(cat.toLowerCase().includes('abaya')) icon = '🤍';
-        html += `<button class="filter-chip" data-cat="${cat}" onclick="filterCategory('${cat}')">${icon} ${cat} <span class="count" id="count-cat-${i}">0</span></button>`;
-    });
-    container.innerHTML = html;
-};
-
+// ============================================================
+// PRODUCTS
+// ============================================================
 window.updateProductsData = function(firebaseProducts) {
     if (!Array.isArray(firebaseProducts)) return;
     productsData = firebaseProducts.map(function(p) {
@@ -1169,25 +1431,7 @@ window.updateProductsData = function(firebaseProducts) {
         } else if (typeof safePrice !== 'number' && typeof safePrice !== 'string') safePrice = 'Coming Soon';
         let safeStock = 1;
         if (p.stock !== undefined && p.stock !== null) { safeStock = parseInt(p.stock); if (isNaN(safeStock) || safeStock < 0) safeStock = 0; }
-        return { 
-            id: parseInt(p.id) || Math.floor(Math.random() * 100000), 
-            docId: p.docId || null,
-            name: p.name || 'Unnamed Product', 
-            category: p.category || 'Uncategorized', 
-            price: safePrice, 
-            stock: safeStock, 
-            image: mainImage, 
-            video: p.video || null, 
-            badge: p.badge || null, 
-            badgeText: p.badgeText || null, 
-            sizes: Array.isArray(p.sizes) ? p.sizes : [], 
-            colors: safeColors, 
-            images: safeImages, 
-            reviewCount: parseInt(p.reviewCount) || 0,
-            ratingSum: parseInt(p.ratingSum) || 0,
-            ratingDist: p.ratingDist || {5:0,4:0,3:0,2:0,1:0},
-            fullDescription: p.fullDescription || ('<h3>' + (p.name || '') + '</h3>') 
-        };
+        return { id: parseInt(p.id) || Math.floor(Math.random() * 100000), name: p.name || 'Unnamed Product', category: p.category || 'Uncategorized', price: safePrice, stock: safeStock, image: mainImage, video: p.video || null, badge: p.badge || null, badgeText: p.badgeText || null, sizes: Array.isArray(p.sizes) ? p.sizes : [], colors: safeColors, images: safeImages, fullDescription: p.fullDescription || ('<h3>' + (p.name || '') + '</h3>') };
     });
     productsData.sort(function(a, b) { return a.id - b.id; });
     renderProducts(productsData);
@@ -1195,6 +1439,7 @@ window.updateProductsData = function(firebaseProducts) {
     updateWishlistBadge();
     const wl = document.getElementById('wishlist-section');
     if (wl && wl.classList.contains('active-page')) renderWishlist();
+    // Refresh open product detail if it was updated
     const pd = document.getElementById('product-details-section');
     if (pd && pd.classList.contains('active-page') && currentProductId) {
         const exists = productsData.find(p => p.id === currentProductId);
@@ -1204,17 +1449,11 @@ window.updateProductsData = function(firebaseProducts) {
 
 function updateFilterCounts() {
     if (!Array.isArray(productsData)) return;
-    let cats = window.categoriesCache || ['Hijab Collection', 'Burqa Collection', 'Abaya Collection'];
     const el = (id) => document.getElementById(id);
     if (el('count-all')) el('count-all').textContent = productsData.length;
-    cats.forEach((cat, i) => {
-        const cnt = productsData.filter(p => p.category === cat).length;
-        const e = el('count-cat-' + i);
-        if (e) e.textContent = cnt;
-        if (cat === 'Hijab Collection' && el('count-hijab')) el('count-hijab').textContent = cnt;
-        if (cat === 'Burqa Collection' && el('count-burqa')) el('count-burqa').textContent = cnt;
-        if (cat === 'Abaya Collection' && el('count-abaya')) el('count-abaya').textContent = cnt;
-    });
+    if (el('count-hijab')) el('count-hijab').textContent = productsData.filter(p => p.category === 'Hijab Collection').length;
+    if (el('count-burqa')) el('count-burqa').textContent = productsData.filter(p => p.category === 'Burqa Collection').length;
+    if (el('count-abaya')) el('count-abaya').textContent = productsData.filter(p => p.category === 'Abaya Collection').length;
 }
 
 function renderProductsGrid(itemsToRender) {
@@ -1313,6 +1552,9 @@ window.filterProductsBySearch = function() {
     window.switchTab('shop');
 };
 
+// ============================================================
+// WISHLIST
+// ============================================================
 function updateWishlistBadge() {
     const badge = document.getElementById('wishlist-count');
     if (badge) { badge.textContent = wishlist.length; badge.style.display = wishlist.length > 0 ? 'block' : 'none'; }
@@ -1388,6 +1630,9 @@ window.clearAllWishlist = function() {
     window.showToast('🗑️ Wishlist খালি হয়েছে');
 };
 
+// ============================================================
+// BANNER SLIDER
+// ============================================================
 window.renderBannerSlider = function() {
     const slider = document.getElementById('promo-banner-slider');
     const track = document.getElementById('banner-track');
@@ -1454,6 +1699,9 @@ window.handleBannerClick = function(idx) {
     if (type === 'tab') { window.switchTab(link.replace('tab:', '').trim()); return; }
 };
 
+// ============================================================
+// HOME COLLECTIONS
+// ============================================================
 window.renderHomeCollections = function() {
     const container = document.getElementById('home-collections-container');
     const header = document.getElementById('home-collections-header');
@@ -1471,6 +1719,9 @@ window.renderHomeCollections = function() {
     container.innerHTML = html;
 };
 
+// ============================================================
+// COUPONS
+// ============================================================
 function getUsedCouponsLocal() { return JSON.parse(localStorage.getItem('burqa_used_coupons')) || []; }
 function markCouponUsedLocal(code) { const used = getUsedCouponsLocal(); if (!used.includes(code.toUpperCase())) { used.push(code.toUpperCase()); localStorage.setItem('burqa_used_coupons', JSON.stringify(used)); } }
 
@@ -1586,6 +1837,9 @@ window.applyCoupon = async function() {
 function resetCouponBtn(btn) { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Apply'; } }
 window.removeCoupon = function() { appliedCoupon = null; discountAmount = 0; updateCartUI(); window.showToast('🗑️ কুপন সরানো হয়েছে'); };
 
+// ============================================================
+// FAQ
+// ============================================================
 window.renderFAQ = function() {
     const container = document.getElementById('faq-list');
     if (!container) return;
@@ -1618,6 +1872,9 @@ window.filterFAQ = function(cat) {
     window.renderFAQ();
 };
 
+// ============================================================
+// PAGES
+// ============================================================
 window.applyPageContent = function(pageId) {
     const container = document.getElementById(pageId + '-content-box');
     if (!container) return;
@@ -1648,6 +1905,9 @@ window.renderCouriersTrackPage = function() {
     container.innerHTML = html;
 };
 
+// ============================================================
+// CUSTOMER ORDER TRACKING
+// ============================================================
 window.trackCustomerOrder = async function() {
     const input = document.getElementById('order-track-input');
     const result = document.getElementById('order-track-result');
@@ -1706,6 +1966,9 @@ window.trackCustomerOrder = async function() {
     }
 };
 
+// ============================================================
+// TOAST / CART UI
+// ============================================================
 window.showToast = function(message) {
     const toast = document.getElementById('custom-toast');
     const toastMsg = document.getElementById('toast-message');
@@ -1734,7 +1997,7 @@ window.updateCartUI = function() {
     }
     const { subtotal, hasPriceComingSoon } = calculateCartSubtotal();
     if (appliedCoupon) discountAmount = calculateDiscount(subtotal);
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || { deliveryInside: 60, deliveryOutside: 130 };
+    const s = window.settingsCache || window.DEFAULT_SETTINGS || { deliveryInside: 60, deliveryOutside: 130, bkash: '01832140613', nagad: '01832140613' };
     const defaultDelivery = s.deliveryInside || 60;
     let shippingSelect = document.getElementById('shipping-select');
     let deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : defaultDelivery;
@@ -1780,77 +2043,65 @@ window.updateCartUI = function() {
     window.handlePaymentChange();
 };
 
+// ============================================================
+// PAYMENT METHODS
+// ============================================================
 window.renderPaymentMethods = function() {
     const container = document.querySelector('.payment-methods-box');
     if (!container) return;
     const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-    const numbers = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
-    
-    if (numbers.length === 0) { 
-        container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">কোনো payment method নেই।</p>'; 
-        return; 
-    }
-    
+    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods.filter(m => m.enabled !== false) : [];
+    if (methods.length === 0) { container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">কোনো payment method নেই।</p>'; return; }
     let html = '';
-    numbers.forEach((pm, idx) => {
-        const label = pm.name || 'Payment';
-        const val = label.toLowerCase().replace(/\s+/g, '-');
-        const iconUrl = pm.imageUrl || '';
+    methods.forEach((pm, idx) => {
+        const value = pm.value || pm.name || '';
+        const label = pm.label || pm.name || value;
+        const iconUrl = extractUrl(pm.iconUrl) || '';
         const checked = idx === 0 ? 'checked' : '';
-        html += `<label class="payment-option"><input type="radio" name="payment" value="${val}" onchange="handlePaymentChange()" ${checked}>
-        ${iconUrl ? `<img src="${iconUrl}" alt="${label}" loading="lazy" onerror="this.style.display='none'">` : ''}
-        <span>${label}</span></label>`;
+        html += `<label class="payment-option"><input type="radio" name="payment" value="${value}" onchange="handlePaymentChange()" ${checked}>${iconUrl ? `<img src="${iconUrl}" alt="${label}" loading="lazy" onerror="this.style.display='none'">` : ''}<span>${label}</span></label>`;
     });
     container.innerHTML = html;
 };
 
 function renderAllPaymentInstructionBoxes(deliveryCharge, totalAmount, s) {
-    const numbers = Array.isArray(s.paymentNumbers) ? s.paymentNumbers : [];
-    if (numbers.length === 0) return '';
-    
-    let boxesHtml = '';
-    numbers.forEach((pm, idx) => {
-        const name = pm.name || 'Payment';
-        const val = name.toLowerCase().replace(/\s+/g, '-');
-        const num = pm.number || '';
-        const inst = pm.instruction || '';
-        const isCOD = val.includes('cod') || val.includes('cash') || val.includes('delivery');
-        
-        let boxContent = `
-            <p>${isCOD ? 'ডেলিভারি চার্জ অগ্রিম:' : 'সম্পূর্ণ পেমেন্ট:'} <strong style="color: var(--gold-color); font-size: 15px;">৳ <span class="inst-amount-display" data-type="${isCOD ? 'cod' : 'full'}">${isCOD ? deliveryCharge : totalAmount}</span></strong></p>
-            ${num ? `<div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${num}</span><button type="button" class="copy-btn" onclick="copyNumber('${num}', '${name}')"><i class="fas fa-copy"></i> কপি</button></div>` : ''}
-            ${inst ? `<div style="font-size: 13px; color: #fcd34d; margin-bottom: 15px; padding: 10px; background: rgba(245,158,11,0.1); border-left: 3px solid #f59e0b; border-radius: 4px;"><i class="fas fa-info-circle"></i> ${inst}</div>` : ''}
-            <div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর / অ্যাকাউন্ট *</label><input type="tel" id="${val}-sender-input" placeholder="017xxxxxxxx"></div>
-            <div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="${val}-trx-input" placeholder="9L8A7B6C"></div>
-        `;
-        
-        boxesHtml += `<div class="instruction-box" id="inst-box-${val}">${boxContent}</div>`;
-    });
-    return boxesHtml;
+    return `
+        <div class="instruction-box" id="cod-instruction-box"><h4><i class="fas fa-info-circle"></i> ক্যাশ অন ডেলিভারি:</h4><p>ডেলিভারি চার্জ অগ্রিম <strong style="color: var(--gold-color);">৳ <span id="cod-amount-text">${deliveryCharge}</span></strong></p><div style="font-size: 13px; font-weight: 600; margin-top: 6px;">👉 বিকাশ নম্বর:</div><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.bkash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.bkash || ''}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>প্রেরকের নম্বর *</label><input type="tel" id="cod-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="cod-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="bkash-instruction-box"><h4><i class="fas fa-shield-alt"></i> বিকাশ পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="bkash-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.bkash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.bkash || ''}', 'bKash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার বিকাশ নম্বর *</label><input type="tel" id="bkash-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="bkash-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="nagad-instruction-box"><h4><i class="fas fa-wallet"></i> নগদ পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="nagad-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;">${s.nagad || ''}</span><button type="button" class="copy-btn" onclick="copyNumber('${s.nagad || ''}', 'Nagad')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার নগদ নম্বর *</label><input type="tel" id="nagad-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="nagad-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="upay-instruction-box"><h4><i class="fas fa-mobile-alt"></i> Upay পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="upay-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="upay-number-display">${s.upay || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('upay-number-display').textContent, 'Upay')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার Upay নম্বর *</label><input type="tel" id="upay-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="upay-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="rocket-instruction-box"><h4><i class="fas fa-rocket"></i> Rocket পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="rocket-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="rocket-number-display">${s.rocket || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('rocket-number-display').textContent, 'Rocket')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার Rocket নম্বর *</label><input type="tel" id="rocket-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="rocket-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="surecash-instruction-box"><h4><i class="fas fa-money-check-alt"></i> SureCash পেমেন্ট:</h4><p>সম্পূর্ণ পেমেন্ট: <strong style="color: var(--gold-color); font-size: 15px;">৳ <span id="surecash-amount-text">${totalAmount}</span></strong></p><div class="number-row"><span style="font-weight: bold; color: var(--gold-color); font-size: 15px;" id="surecash-number-display">${s.surecash || ''}</span><button type="button" class="copy-btn" onclick="copyNumber(document.getElementById('surecash-number-display').textContent, 'SureCash')"><i class="fas fa-copy"></i> কপি</button></div><div class="form-group" style="margin-top: 15px;"><label>আপনার SureCash নম্বর *</label><input type="tel" id="surecash-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="surecash-trx-input" placeholder="9L8A7B6C"></div></div>
+        <div class="instruction-box" id="bank-instruction-box"><h4><i class="fas fa-university"></i> Bank Transfer:</h4><p>নিচের অ্যাকাউন্টে টাকা পাঠান:</p><div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;"><strong style="color: var(--gold-color);">🏦 Bank:</strong> ${s.bankName || ''}<br><strong style="color: var(--gold-color);">👤 Account Name:</strong> ${s.bankAccountName || ''}<br><strong style="color: var(--gold-color);">🔢 Account Number:</strong> ${s.bankAccountNumber || ''}<br><strong style="color: var(--gold-color);">🏢 Branch:</strong> ${s.bankBranch || ''}</div><div class="form-group" style="margin-top: 15px;"><label>আপনার অ্যাকাউন্ট নম্বর *</label><input type="tel" id="bank-sender-input" placeholder="অ্যাকাউন্ট নম্বর"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID / Reference *</label><input type="text" id="bank-trx-input" placeholder="TrxID / Reference"></div></div>
+        <div class="instruction-box" id="custom-instruction-box"><h4><i class="fas fa-info-circle"></i> পেমেন্ট নির্দেশিকা:</h4><div style="font-size: 13px; line-height: 1.8; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 10px;" id="custom-instruction-text"></div><div class="form-group" style="margin-top: 15px;"><label>প্রেরকের তথ্য *</label><input type="tel" id="custom-sender-input" placeholder="017xxxxxxxx"></div><div class="form-group" style="margin-bottom: 0;"><label>TrxID *</label><input type="text" id="custom-trx-input" placeholder="9L8A7B6C"></div></div>`;
 }
 
 window.handlePaymentChange = function() {
     const selectedEl = document.querySelector('input[name="payment"]:checked');
     if (!selectedEl) return;
     const selectedPayment = selectedEl.value;
-    
-    document.querySelectorAll('.instruction-box').forEach(box => box.style.display = 'none');
-    
-    const box = document.getElementById(`inst-box-${selectedPayment}`);
-    if (box) {
-        box.style.display = 'block';
-        
-        const { subtotal } = calculateCartSubtotal();
-        const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-        const shippingSelect = document.getElementById('shipping-select');
-        const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
-        const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
-        const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
-        
-        box.querySelectorAll('.inst-amount-display').forEach(el => {
-            if (el.getAttribute('data-type') === 'cod') el.textContent = deliveryCharge;
-            else el.textContent = totalAmount;
-        });
+    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
+    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods : [];
+    const selectedMethod = methods.find(m => (m.value || m.name) === selectedPayment);
+    const instructionType = selectedMethod ? (selectedMethod.instructionType || 'none') : 'none';
+    const boxIds = ['cod-instruction-box','bkash-instruction-box','nagad-instruction-box','upay-instruction-box','rocket-instruction-box','surecash-instruction-box','bank-instruction-box','custom-instruction-box'];
+    boxIds.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+    const { subtotal } = calculateCartSubtotal();
+    const shippingSelect = document.getElementById('shipping-select');
+    const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
+    const disc = appliedCoupon ? calculateDiscount(subtotal) : 0;
+    const totalAmount = Math.max(0, subtotal - disc) + deliveryCharge;
+    const typeToBox = { cod: 'cod-instruction-box', bkash: 'bkash-instruction-box', nagad: 'nagad-instruction-box', upay: 'upay-instruction-box', rocket: 'rocket-instruction-box', surecash: 'surecash-instruction-box', bank: 'bank-instruction-box', custom: 'custom-instruction-box' };
+    const boxId = typeToBox[instructionType];
+    if (boxId) {
+        const box = document.getElementById(boxId);
+        if (box) box.style.display = 'block';
+        if (instructionType === 'cod') { const el = document.getElementById('cod-amount-text'); if (el) el.textContent = deliveryCharge; }
+        if (instructionType === 'bkash') { const el = document.getElementById('bkash-amount-text'); if (el) el.textContent = totalAmount; }
+        if (instructionType === 'nagad') { const el = document.getElementById('nagad-amount-text'); if (el) el.textContent = totalAmount; }
+        if (instructionType === 'upay') { const el = document.getElementById('upay-amount-text'); if (el) el.textContent = totalAmount; }
+        if (instructionType === 'rocket') { const el = document.getElementById('rocket-amount-text'); if (el) el.textContent = totalAmount; }
+        if (instructionType === 'surecash') { const el = document.getElementById('surecash-amount-text'); if (el) el.textContent = totalAmount; }
+        if (instructionType === 'custom') { const ct = document.getElementById('custom-instruction-text'); if (ct) ct.innerHTML = selectedMethod.customInstruction || 'আমাদের সাথে যোগাযোগ করুন।'; }
     }
 };
 
@@ -1873,6 +2124,9 @@ window.increaseQty = function(index) { cart[index].quantity += 1; localStorage.s
 window.decreaseQty = function(index) { if (cart[index].quantity > 1) cart[index].quantity -= 1; else cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.renderMiniCart(); };
 window.removeFromCart = function(index) { const removed = cart[index].name; cart.splice(index, 1); localStorage.setItem('burqa_cart', JSON.stringify(cart)); window.updateCartUI(); window.showToast(removed + ' সরানো হয়েছে!'); };
 
+// ============================================================
+// MINI CART
+// ============================================================
 window.openMiniCart = function() { window.renderMiniCart(); document.getElementById('mini-cart-overlay').classList.add('active'); document.getElementById('mini-cart-sidebar').classList.add('active'); document.body.style.overflow = 'hidden'; };
 window.closeMiniCart = function() { document.getElementById('mini-cart-overlay').classList.remove('active'); document.getElementById('mini-cart-sidebar').classList.remove('active'); document.body.style.overflow = ''; };
 window.renderMiniCart = function() {
@@ -1895,6 +2149,9 @@ window.renderMiniCart = function() {
     if (subtotalEl) subtotalEl.textContent = '৳ ' + subtotal;
 };
 
+// ============================================================
+// NEWSLETTER
+// ============================================================
 window.subscribeNewsletter = async function(event) {
     event.preventDefault();
     if (isSubscribing) return;
@@ -1908,11 +2165,11 @@ window.subscribeNewsletter = async function(event) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>...';
     try {
-        if (!window.db || !window.fbAddDoc || !window.fbQuery || !window.fbWhere) throw new Error('Firebase not ready');
-        // ⚡ OPTIMIZED: query returns 0 or 1 doc, not all docs
-        const q = window.fbQuery(window.fbCollection(window.db, 'newsletter'), window.fbWhere('email', '==', email));
-        const snap = await window.fbGetDocs(q);
-        if (!snap.empty) { window.showToast('ℹ️ ইতিমধ্যে সাবস্ক্রাইব করেছেন'); emailInput.value = ''; isSubscribing = false; btn.disabled = false; btn.innerHTML = origText; return; }
+        if (!window.db || !window.fbAddDoc) throw new Error('Firebase not ready');
+        const snap = await window.fbGetDocs(window.fbCollection(window.db, 'newsletter'));
+        let exists = false;
+        snap.forEach(d => { if ((d.data().email || '').toLowerCase() === email) exists = true; });
+        if (exists) { window.showToast('ℹ️ ইতিমধ্যে সাবস্ক্রাইব করেছেন'); emailInput.value = ''; isSubscribing = false; btn.disabled = false; btn.innerHTML = origText; return; }
         await window.fbAddDoc(window.fbCollection(window.db, 'newsletter'), { email, date: new Date().toISOString(), source: 'website' });
         window.showToast('✅ ধন্যবাদ! সাবস্ক্রাইব হয়েছে');
         emailInput.value = '';
@@ -1924,6 +2181,9 @@ window.subscribeNewsletter = async function(event) {
 
 window.socialPlaceholder = function(event, platform) { event.preventDefault(); window.showToast('⏳ ' + platform + ' link শীঘ্রই আসছে!'); };
 
+// ============================================================
+// SIDEBAR + THEME
+// ============================================================
 const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('overlay');
 const openSidebar = document.getElementById('openSidebar');
@@ -1954,6 +2214,9 @@ window.toggleTheme = function() {
 if (headerThemeToggleBtn) headerThemeToggleBtn.addEventListener('click', window.toggleTheme);
 if (sidebarThemeToggleBtn) sidebarThemeToggleBtn.addEventListener('click', window.toggleTheme);
 
+// ============================================================
+// TAB SWITCH
+// ============================================================
 window.switchTab = function(tabName) {
     const sections = ['home', 'shop', 'wishlist', 'faq', 'product-details', 'about', 'privacy', 'terms', 'return-policy', 'contact', 'track-order', 'cart'];
     sections.forEach(sec => { const el = document.getElementById(sec + '-section'); if (el) el.classList.remove('active-page'); });
@@ -1983,6 +2246,9 @@ window.quickAddToCart = function(productId) {
     window.showToast('📝 Size ও Color নির্বাচন করুন');
 };
 
+// ============================================================
+// PRODUCT DETAILS + GALLERY
+// ============================================================
 function setGalleryImages(images, mainImage) {
     let safeImages = [];
     if (Array.isArray(images) && images.length > 0) safeImages = images.map(i => extractUrl(i)).filter(i => i && i.length > 5);
@@ -2043,6 +2309,7 @@ window.openProductDetails = function(productId) {
     if (!product) return;
     currentProductId = productId;
     selectedSize = null; selectedColor = null; currentRating = 0; isSubmittingReview = false;
+    if (typeof window.trackProductView === 'function') window.trackProductView(product);
     const isOOS = (product.stock === 0);
     const hasSizes = product.sizes && product.sizes.length > 0;
     const hasColors = product.colors && product.colors.length > 0;
@@ -2056,6 +2323,7 @@ window.openProductDetails = function(productId) {
         sizeHtml = `<div class="option-label">📏 Size <span class="selected-info" id="size-info"></span></div><div class="size-options-box" id="size-options-box">`;
         product.sizes.forEach(size => { sizeHtml += `<button type="button" class="size-btn" data-size="${size}" onclick="selectSize('${size}')">${size}</button>`; });
         sizeHtml += `</div>`;
+        sizeHtml += `<button type="button" class="size-guide-btn" onclick="event.stopPropagation(); openSizeChart('${product.category}')"><i class="fas fa-ruler-combined"></i> 📏 Size Guide</button>`;
     }
     let colorHtml = '';
     if (hasColors) {
@@ -2076,41 +2344,11 @@ window.openProductDetails = function(productId) {
     else if (product.stock !== undefined && product.stock > 0 && product.stock <= 5) stockLineHtml = `<div style="margin-top: 10px; padding: 10px 15px; background: rgba(245,158,11,.15); border: 1px solid #f59e0b; border-radius: 8px; color: #fcd34d; font-size: 13px; font-weight: 600;"><i class="fas fa-fire"></i> মাত্র ${product.stock}টি স্টকে!</div>`;
     const ratingSectionHtml = renderRatingSection(product.id);
     const relatedHtml = renderRelatedProducts(product.id);
-    
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
-    let contactButtonsHtml = `
-        <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
-            <a href="https://wa.me/${s.whatsapp || ''}?text=${encodeURIComponent('আমি এই প্রোডাক্টটি সম্পর্কে জানতে চাই: ' + product.name)}" target="_blank" style="flex: 1; min-width: 140px; background: #25d366; color: #fff; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fab fa-whatsapp" style="font-size: 18px;"></i> WhatsApp</a>
-            <a href="tel:${s.phone || ''}" style="flex: 1; min-width: 140px; background: var(--gold-color); color: #0b0b0d; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fas fa-phone" style="font-size: 18px;"></i> Call Now</a>
-        </div>
-    `;
-
     const detailsContainer = document.getElementById('product-details-content');
-    detailsContainer.innerHTML = `<button onclick="switchTab('shop')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 15px;"><i class="fas fa-arrow-left"></i> Back to Shop</button>${galleryHtml}<span class="product-category-tag">${product.category}</span><div class="details-title">${product.name} ${badgeHtml}</div>${ratingLineHtml}<div class="details-price" style="margin-top: 10px;">${priceDisplay}</div>${stockLineHtml}${videoBtnHtml}${sizeHtml}${colorHtml}<div class="selection-warning" id="selection-warning">⚠️ Size এবং Color নির্বাচন করুন</div><div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px; flex-wrap: wrap;">${isOOS ? `<button disabled style="flex: 1; min-width: 180px; background: #666; color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: not-allowed;"><i class="fas fa-ban"></i> Out of Stock</button>` : `<button onclick="addToCartFromDetails()" style="flex: 1; min-width: 180px; background: var(--gold-color); color: #0b0b0d; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;"><i class="fas fa-shopping-bag"></i> Add to Cart</button>`}<button onclick="toggleWishlist(${product.id}, event)" class="wishlist-btn ${isWishlisted ? 'active' : ''}" data-pid="${product.id}" style="position: static; width: 50px; height: 50px; background: ${isWishlisted ? '#ff007f' : 'var(--bg-color)'}; border: 1.5px solid ${isWishlisted ? '#ff007f' : 'var(--border-color)'}; color: ${isWishlisted ? '#fff' : 'var(--text-color)'}; border-radius: 8px; font-size: 18px;"><i class="fas fa-heart"></i></button><button onclick="openShareModal(${product.id}, event)" class="share-btn" style="width: 50px; height: 50px; justify-content: center; padding: 0;"><i class="fas fa-share-alt"></i></button></div>${contactButtonsHtml}<div class="details-desc-box">${product.fullDescription}</div>${ratingSectionHtml}${relatedHtml}`;
+    detailsContainer.innerHTML = `<button onclick="switchTab('shop')" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 15px;"><i class="fas fa-arrow-left"></i> Back to Shop</button>${galleryHtml}<span class="product-category-tag">${product.category}</span><div class="details-title">${product.name} ${badgeHtml}</div>${ratingLineHtml}<div class="details-price" style="margin-top: 10px;">${priceDisplay}</div>${stockLineHtml}${videoBtnHtml}${sizeHtml}${colorHtml}<div class="selection-warning" id="selection-warning">⚠️ Size এবং Color নির্বাচন করুন</div><div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px; flex-wrap: wrap;">${isOOS ? `<button disabled style="flex: 1; min-width: 180px; background: #666; color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: not-allowed;"><i class="fas fa-ban"></i> Out of Stock</button>` : `<button onclick="addToCartFromDetails()" style="flex: 1; min-width: 180px; background: var(--gold-color); color: #0b0b0d; border: none; padding: 14px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer;"><i class="fas fa-shopping-bag"></i> Add to Cart</button>`}<button onclick="toggleWishlist(${product.id}, event)" class="wishlist-btn ${isWishlisted ? 'active' : ''}" data-pid="${product.id}" style="position: static; width: 50px; height: 50px; background: ${isWishlisted ? '#ff007f' : 'var(--bg-color)'}; border: 1.5px solid ${isWishlisted ? '#ff007f' : 'var(--border-color)'}; color: ${isWishlisted ? '#fff' : 'var(--text-color)'}; border-radius: 8px; font-size: 18px;"><i class="fas fa-heart"></i></button><button onclick="openShareModal(${product.id}, event)" class="share-btn" style="width: 50px; height: 50px; justify-content: center; padding: 0;"><i class="fas fa-share-alt"></i></button></div><div class="details-desc-box">${product.fullDescription}</div>${ratingSectionHtml}${relatedHtml}`;
     window.switchTab('product-details');
     window.scrollTo(0, 0);
     setTimeout(attachGallerySwipeHandlers, 50);
-    
-    // Lazy load reviews for this product only
-    fetchReviewsForProduct(productId).then(() => {
-        if (currentProductId !== productId) return;
-        const pdSection = document.getElementById('product-details-section');
-        if (!pdSection || !pdSection.classList.contains('active-page')) return;
-        const container = document.getElementById('product-details-content');
-        if (!container) return;
-        const newHtml = renderRatingSection(productId);
-        const temp = document.createElement('div');
-        temp.innerHTML = newHtml;
-        const oldSummary = container.querySelector('.rating-summary');
-        const oldReview = container.querySelector('.review-section');
-        const oldList = container.querySelector('.review-list');
-        const newSummary = temp.querySelector('.rating-summary');
-        const newReview = temp.querySelector('.review-section');
-        const newList = temp.querySelector('.review-list');
-        if (oldSummary && newSummary) oldSummary.replaceWith(newSummary);
-        if (oldReview && newReview) oldReview.replaceWith(newReview);
-        if (oldList && newList) oldList.replaceWith(newList);
-    });
 };
 
 window.selectSize = function(size) {
@@ -2149,6 +2387,7 @@ window.addToCartFromDetails = function() {
 };
 
 function addToCartWithOptions(product, size, color) {
+    if (typeof window.trackAddToCart === 'function') window.trackAddToCart(product);
     const cartKey = product.id + '_' + (size || 'nosize') + '_' + (color || 'nocolor');
     const existingItem = cart.find(item => item.cartKey === cartKey);
     if (existingItem) existingItem.quantity += 1;
@@ -2164,6 +2403,9 @@ function addToCartWithOptions(product, size, color) {
     setTimeout(() => window.renderMiniCart(), 100);
 }
 
+// ============================================================
+// VIDEO / IMAGE MODAL
+// ============================================================
 window.openVideoModal = function(videoUrl) {
     const embedUrl = convertToEmbedUrl(videoUrl);
     if (!embedUrl) { window.showToast('❌ ভিডিও লিংক সাপোর্টেড নয়'); return; }
@@ -2194,6 +2436,9 @@ function convertToEmbedUrl(url) {
 window.openImageModal = function(imgSrc) { const modal = document.getElementById('image-modal'); const modalImg = document.getElementById('modal-zoomed-img'); modalImg.src = imgSrc; modal.classList.add('active'); };
 window.closeImageModal = function() { document.getElementById('image-modal').classList.remove('active'); };
 
+// ============================================================
+// SHARE
+// ============================================================
 window.openShareModal = function(productId, event) {
     if (event) { event.stopPropagation(); event.preventDefault(); }
     const product = productsData.find(p => p.id === productId);
@@ -2216,68 +2461,28 @@ window.copyProductLink = function() {
     navigator.clipboard.writeText(shareUrl).then(() => { window.showToast('✅ Link কপি হয়েছে!'); window.closeShareModal(); }).catch(() => window.showToast('❌ কপি করা যায়নি'));
 };
 
-function getProductReviews(productId) {
-    return window.productReviewsCache[productId] || [];
-}
-
-async function fetchReviewsForProduct(productId) {
-    if (!window.db || !window.fbGetDocs || !window.fbCollection || !window.fbQuery || !window.fbWhere) return [];
-    try {
-        const q = window.fbQuery(window.fbCollection(window.db, 'reviews'), window.fbWhere('productId', '==', productId));
-        const snap = await window.fbGetDocs(q);
-        const arr = [];
-        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-        arr.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-        window.productReviewsCache[productId] = arr;
-        return arr;
-    } catch (err) {
-        console.warn('Fetch reviews failed:', err.message);
-        return [];
-    }
-}
+// ============================================================
+// REVIEWS
+// ============================================================
+function getProductReviews(productId) { if (!window.reviewsCache) return []; return window.reviewsCache[productId] || []; }
 
 async function saveProductReviewToFirestore(productId, review) {
     if (!window.db || !window.fbAddDoc || !window.fbCollection) throw new Error('Firebase not ready');
-    const docRef = await window.fbAddDoc(window.fbCollection(window.db, "reviews"), { 
-        productId, name: review.name, rating: review.rating, text: review.text, 
-        date: new Date().toISOString(), createdAt: new Date().toISOString() 
-    });
-    // Update product counters
-    const product = productsData.find(p => p.id === productId);
-    if (product && product.docId && window.fbUpdateDoc && window.fbIncrement) {
-        const rating = parseInt(review.rating) || 0;
-        try {
-            await window.fbUpdateDoc(window.fbDoc(window.db, 'products', product.docId), {
-                reviewCount: window.fbIncrement(1),
-                ratingSum: window.fbIncrement(rating),
-                ['ratingDist.' + rating]: window.fbIncrement(1)
-            });
-            product.reviewCount = (product.reviewCount || 0) + 1;
-            product.ratingSum = (product.ratingSum || 0) + rating;
-            if (!product.ratingDist) product.ratingDist = {5:0,4:0,3:0,2:0,1:0};
-            product.ratingDist[rating] = (product.ratingDist[rating] || 0) + 1;
-        } catch (err) { console.warn('Product stats update failed:', err.message); }
-    }
-    // Update local cache
-    if (!window.productReviewsCache[productId]) window.productReviewsCache[productId] = [];
-    window.productReviewsCache[productId].unshift({ 
-        id: docRef.id, productId, name: review.name, rating: review.rating, 
-        text: review.text, date: new Date().toISOString() 
-    });
+    const docRef = await window.fbAddDoc(window.fbCollection(window.db, "reviews"), { productId, name: review.name, rating: review.rating, text: review.text, date: new Date().toISOString(), createdAt: new Date().toISOString() });
+    if (!window.reviewsCache) window.reviewsCache = {};
+    if (!window.reviewsCache[productId]) window.reviewsCache[productId] = [];
+    window.reviewsCache[productId].unshift({ id: docRef.id, productId, name: review.name, rating: review.rating, text: review.text, date: new Date().toISOString() });
+    fcSet('reviews', window.reviewsCache);
     return docRef;
 }
 
-// Reads stats from product doc only - no reviews needed!
 function calculateRatingStats(productId) {
-    const p = productsData.find(x => x.id === productId);
-    if (!p || !p.reviewCount) return { average: 0, total: 0, distribution: {5:0,4:0,3:0,2:0,1:0} };
-    const total = p.reviewCount || 0;
-    const sum = p.ratingSum || 0;
-    return {
-        average: total > 0 ? (sum / total).toFixed(1) : 0,
-        total: total,
-        distribution: p.ratingDist || {5:0,4:0,3:0,2:0,1:0}
-    };
+    const reviews = getProductReviews(productId);
+    if (reviews.length === 0) return { average: 0, total: 0, distribution: {5:0,4:0,3:0,2:0,1:0} };
+    const distribution = {5:0,4:0,3:0,2:0,1:0};
+    let sum = 0;
+    reviews.forEach(r => { const rt = parseInt(r.rating) || 0; sum += rt; if (distribution[rt] !== undefined) distribution[rt]++; });
+    return { average: (sum / reviews.length).toFixed(1), total: reviews.length, distribution };
 }
 
 function renderStars(rating) {
@@ -2360,6 +2565,61 @@ function renderRelatedProducts(productId) {
     return html;
 }
 
+// ============================================================
+// SIZE CHART
+// ============================================================
+function getSizeChartData(category) {
+    const charts = window.sizeChartsCache || {};
+    return charts[category] || charts['default'] || { title: 'Size Guide', rows: [] };
+}
+function cmToInch(cm) { return (cm / 2.54).toFixed(1); }
+function formatMeasure(cm) { return sizeChartUnit === 'inch' ? cmToInch(cm) + '"' : cm + ' cm'; }
+
+window.openSizeChart = function(category) {
+    currentSizeChartCategory = category || 'default';
+    const data = getSizeChartData(currentSizeChartCategory);
+    document.getElementById('size-chart-title').textContent = data.title || 'Size Guide';
+    renderSizeChartTable();
+    document.getElementById('size-chart-modal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+window.closeSizeChart = function(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('size-chart-modal').classList.remove('active');
+    document.body.style.overflow = '';
+};
+window.switchSizeUnit = function(unit) {
+    sizeChartUnit = unit;
+    document.querySelectorAll('.size-unit-btn').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-unit') === unit));
+    renderSizeChartTable();
+};
+function renderSizeChartTable() {
+    const data = getSizeChartData(currentSizeChartCategory);
+    const table = document.getElementById('size-chart-table');
+    if (!table) return;
+    const isHijab = currentSizeChartCategory === 'Hijab Collection';
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    if (rows.length === 0) { table.innerHTML = '<tbody><tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">কোনো size data নেই।</td></tr></tbody>'; return; }
+    let html = '<thead><tr><th>সাইজ</th>';
+    if (!isHijab) { html += '<th>বুক</th><th>কোমর</th>'; }
+    html += '<th>লম্বা</th>';
+    if (!isHijab) { html += '<th>কাঁধ</th><th>হাতা</th>'; }
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+        html += '<tr>';
+        html += `<td>${row.size || '—'}</td>`;
+        if (!isHijab) { html += `<td>${row.chest ? formatMeasure(row.chest) : '—'}</td><td>${row.waist ? formatMeasure(row.waist) : '—'}</td>`; }
+        html += `<td>${row.length ? formatMeasure(row.length) : '—'}</td>`;
+        if (!isHijab) { html += `<td>${row.shoulder ? formatMeasure(row.shoulder) : '—'}</td><td>${row.sleeve ? formatMeasure(row.sleeve) : '—'}</td>`; }
+        html += '</tr>';
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+}
+
+// ============================================================
+// ORDER SUBMIT
+// ============================================================
 function generateOrderId() {
     const now = new Date();
     const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -2383,20 +2643,19 @@ window.submitOrder = async function(event) {
     if (!selectedPaymentEl) { alert('Please select a payment method.'); return; }
     const selectedPayment = selectedPaymentEl.value;
     if (!name || !phone || !city || !district || !thana || !address) { alert('Please fill required fields.'); return; }
-    
-    const sId = `${selectedPayment}-sender-input`;
-    const tId = `${selectedPayment}-trx-input`;
-    const sEl = document.getElementById(sId);
-    const tEl = document.getElementById(tId);
+    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
+    const methods = Array.isArray(s.paymentMethods) ? s.paymentMethods : [];
+    const selectedMethod = methods.find(m => (m.value || m.name) === selectedPayment);
+    const instructionType = selectedMethod ? (selectedMethod.instructionType || 'none') : 'none';
     let senderNumber = '', trxId = '';
-    
-    if (sEl && tEl) {
-        senderNumber = sEl.value.trim(); 
-        trxId = tEl.value.trim();
+    const fieldMap = { cod: ['cod-sender-input','cod-trx-input'], bkash: ['bkash-sender-input','bkash-trx-input'], nagad: ['nagad-sender-input','nagad-trx-input'], upay: ['upay-sender-input','upay-trx-input'], rocket: ['rocket-sender-input','rocket-trx-input'], surecash: ['surecash-sender-input','surecash-trx-input'], bank: ['bank-sender-input','bank-trx-input'], custom: ['custom-sender-input','custom-trx-input'] };
+    if (fieldMap[instructionType]) {
+        const [sId, tId] = fieldMap[instructionType];
+        senderNumber = (document.getElementById(sId) || {}).value || '';
+        trxId = (document.getElementById(tId) || {}).value || '';
+        senderNumber = senderNumber.trim(); trxId = trxId.trim();
         if (!senderNumber || !trxId) { alert('Please provide sender info and TrxID.'); return; }
     }
-
-    const s = window.settingsCache || window.DEFAULT_SETTINGS || {};
     const { subtotal, hasPriceComingSoon } = calculateCartSubtotal();
     const shippingSelect = document.getElementById('shipping-select');
     const deliveryCharge = shippingSelect ? parseInt(shippingSelect.value) : (s.deliveryInside || 60);
@@ -2411,6 +2670,7 @@ window.submitOrder = async function(event) {
             try { await window.fbAddDoc(window.fbCollection(window.db, "coupon_usage"), { code: appliedCoupon.code.toUpperCase(), phone: phone.replace(/[^0-9]/g, ''), orderId, discountAmount: discount, date: new Date().toISOString() }); markCouponUsedLocal(appliedCoupon.code); } catch (e) {}
         }
     } catch (fbErr) { console.error('Order save error:', fbErr); }
+    if (typeof window.trackPurchase === 'function') window.trackPurchase(totalAmount, cart);
     let productsText = '';
     cart.forEach((item, index) => {
         let priceStr = (typeof item.price === 'number') ? ('৳' + item.price) : 'TBD';
@@ -2430,6 +2690,9 @@ window.submitOrder = async function(event) {
     setTimeout(() => { window.open('https://wa.me/' + ownerWhatsAppNumber + '?text=' + whatsappMessage, '_blank'); window.switchTab('home'); }, 1500);
 };
 
+// ============================================================
+// BACK TO TOP + SCROLL
+// ============================================================
 window.scrollToTop = function() { window.scrollTo({ top: 0, behavior: 'smooth' }); };
 let scrollTick = false;
 window.addEventListener('scroll', () => {
@@ -2446,6 +2709,9 @@ window.addEventListener('scroll', () => {
     });
 });
 
+// ============================================================
+// URL HANDLING
+// ============================================================
 function handleInitialURL() {
     const params = new URLSearchParams(window.location.search);
     const productId = params.get('product');
@@ -2454,10 +2720,16 @@ function handleInitialURL() {
     if (hash && ['shop','wishlist','faq','about','privacy','terms','return-policy','contact','track-order','cart'].includes(hash)) window.switchTab(hash);
 }
 
+// ============================================================
+// ESC KEY
+// ============================================================
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { window.closeMiniCart(); window.closeShareModal(); window.closeImageModal(); window.closeVideoModal(); }
+    if (e.key === 'Escape') { window.closeMiniCart(); window.closeShareModal(); window.closeImageModal(); window.closeSizeChart(); window.closeVideoModal(); }
 });
 
+// ============================================================
+// INIT
+// ============================================================
 window.addEventListener('DOMContentLoaded', function() {
     window.updateCartUI();
     updateWishlistBadge();
