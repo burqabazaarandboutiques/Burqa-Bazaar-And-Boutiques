@@ -261,28 +261,6 @@ header.shrunk .brand-title { font-size: 11px; }
 .review-count { font-size: 10px; opacity: .7; }
 .product-category-tag { font-size: 10px; text-transform: uppercase; color: var(--gold-color); font-weight: 700; letter-spacing: .5px; }
 
-.size-guide-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(59,130,246,.12); border: 1.5px solid #3b82f6; color: #60a5fa; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-.size-chart-modal { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 8500; display: none; align-items: center; justify-content: center; padding: 15px; }
-.size-chart-modal.active { display: flex; }
-.size-chart-box { background: var(--card-bg); border: 1.5px solid var(--gold-color); border-radius: 18px; padding: 25px 20px; max-width: 620px; width: 100%; max-height: 92vh; overflow-y: auto; position: relative; }
-.size-chart-header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-color); position: relative; }
-.size-chart-header h2 { color: var(--gold-color); font-size: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.size-chart-close { position: absolute; top: -8px; right: -5px; width: 34px; height: 34px; border-radius: 50%; background: transparent; border: 1.5px solid var(--bad-color); color: var(--bad-color); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.size-unit-toggle { display: flex; justify-content: center; gap: 8px; margin-bottom: 18px; }
-.size-unit-btn { padding: 6px 20px; border-radius: 20px; background: var(--bg-color); border: 1.5px solid var(--border-color); color: var(--text-color); font-size: 12px; font-weight: 700; cursor: pointer; }
-.size-unit-btn.active { background: var(--gold-color); color: #0b0b0d; }
-.size-chart-table-wrap { border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 18px; }
-.size-chart-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.size-chart-table thead { background: linear-gradient(135deg,rgba(223,177,91,.15),rgba(223,177,91,.05)); }
-.size-chart-table th { padding: 12px 8px; text-align: center; color: var(--gold-color); font-weight: 800; font-size: 12px; border-bottom: 2px solid var(--border-color); }
-.size-chart-table td { padding: 11px 8px; text-align: center; color: var(--text-color); font-weight: 600; border-bottom: 1px solid var(--border-color); }
-.size-chart-table td:first-child { font-weight: 800; color: var(--gold-color); font-size: 14px; }
-.size-tips { background: linear-gradient(135deg,rgba(59,130,246,.1),rgba(59,130,246,.03)); border: 1px solid rgba(59,130,246,.35); border-radius: 10px; padding: 14px 16px; }
-.size-tips-title { font-size: 13px; font-weight: 800; color: #60a5fa; margin-bottom: 8px; }
-.size-tips ul { list-style: none; padding: 0; }
-.size-tips li { font-size: 12px; color: var(--text-muted); line-height: 1.7; padding-left: 20px; position: relative; }
-.size-tips li::before { content: '✓'; position: absolute; left: 0; color: var(--ok-color); font-weight: 900; }
-
 .rating-summary { display: flex; align-items: center; gap: 15px; padding: 15px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; margin: 15px 0; }
 .rating-average-box { text-align: center; min-width: 70px; padding-right: 15px; border-right: 1px solid var(--border-color); }
 .rating-average { font-size: 32px; font-weight: 800; color: var(--gold-color); line-height: 1; }
@@ -501,7 +479,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
     .gallery-main { height: 340px; }
     .gallery-nav-btn { width: 34px; height: 34px; font-size: 13px; }
     .gallery-thumb { width: 58px; height: 58px; }
-    .size-chart-box { padding: 20px 15px; }
     .faq-hero h2 { font-size: 22px; }
     .faq-question { padding: 14px 15px; }
 }
@@ -519,30 +496,6 @@ header { background-color: var(--secondary-color); position: sticky; top: 0; z-i
 
 <div id="reading-progress"></div>
 <button id="back-to-top" onclick="scrollToTop()"><i class="fas fa-arrow-up"></i></button>
-
-<div class="size-chart-modal" id="size-chart-modal" onclick="closeSizeChart(event)">
-    <div class="size-chart-box" onclick="event.stopPropagation()">
-        <div class="size-chart-header">
-            <button class="size-chart-close" onclick="closeSizeChart()"><i class="fas fa-times"></i></button>
-            <h2><i class="fas fa-ruler"></i> <span id="size-chart-title">Size Guide</span></h2>
-            <p id="size-chart-subtitle">সঠিক সাইজ বেছে নিন — আরামে থাকুন</p>
-        </div>
-        <div class="size-unit-toggle">
-            <button class="size-unit-btn active" data-unit="cm" onclick="switchSizeUnit('cm')">সেন্টিমিটার (CM)</button>
-            <button class="size-unit-btn" data-unit="inch" onclick="switchSizeUnit('inch')">ইঞ্চি (Inch)</button>
-        </div>
-        <div class="size-chart-table-wrap"><table class="size-chart-table" id="size-chart-table"></table></div>
-        <div class="size-tips">
-            <div class="size-tips-title"><i class="fas fa-lightbulb"></i> সাইজ মাপার টিপস</div>
-            <ul>
-                <li>মাপার সময় টাইট টেপ ব্যবহার করবেন না — আলগা রাখুন</li>
-                <li>বুকের সবচেয়ে চওড়া অংশ থেকে বুকের মাপ নিন</li>
-                <li>কোমরের সবচেয়ে সরু অংশ থেকে কোমরের মাপ নিন</li>
-                <li>কোনো সন্দেহ থাকলে বড় সাইজ বেছে নিন</li>
-            </ul>
-        </div>
-    </div>
-</div>
 
 <div id="video-modal" onclick="closeVideoModal(event)">
     <div class="video-modal-content" onclick="event.stopPropagation()">
@@ -881,7 +834,6 @@ async function loadCollection(colName, docId, cacheKey) {
             if (cacheKey === 'homeCollections') { window.homeCollectionsCache = arr; renderHomeCollections(); }
             if (cacheKey === 'faq') { window.faqCache = arr; renderFAQ(); }
             if (cacheKey === 'coupons') { window.couponsCache = arr; renderHomeCoupons(); }
-            if (cacheKey === 'sizeCharts') { const obj = {}; arr.forEach(s => obj[s.id] = s); window.sizeChartsCache = obj; fcSet(cacheKey, obj); }
         }
     } catch(e) { console.warn('⚠️ Load failed:', colName, e.message); }
 }
@@ -905,7 +857,6 @@ window.preloadEverything = async function() {
         loadCollection('homeCollections', null, 'homeCollections'),
         loadCollection('faq', null, 'faq'),
         loadCollection('coupons', null, 'coupons'),
-        loadCollection('sizeCharts', null, 'sizeCharts'),
         loadPages()
     ]).then(() => console.log('✅ Background sync complete'));
 };
@@ -934,9 +885,6 @@ window.instantLoadFromCache = function() {
     
     const cachedCoupons = fcGet('coupons', null);
     if (cachedCoupons && Array.isArray(cachedCoupons)) { window.couponsCache = cachedCoupons; renderHomeCoupons(); }
-    
-    const cachedSC = fcGet('sizeCharts', null);
-    if (cachedSC && typeof cachedSC === 'object') window.sizeChartsCache = cachedSC;
     
     const cachedCats = fcGet('categories', null);
     if (cachedCats && Array.isArray(cachedCats)) { window.categoriesCache = cachedCats; renderDynamicCategories(); }
@@ -1038,15 +986,6 @@ window.attachRealtimeListeners = function() {
             }
         }, (err) => console.warn('Pages listener error:', err.message));
     } catch(e) {}
-    
-    try {
-        window.fbOnSnapshot(window.fbCollection(window.db, 'sizeCharts'), (snap) => {
-            const obj = {};
-            snap.forEach(d => { obj[d.id] = d.data(); });
-            fcSet('sizeCharts', obj);
-            window.sizeChartsCache = obj;
-        }, (err) => console.warn('SizeCharts listener error:', err.message));
-    } catch(e) {}
 
     try {
         window.fbOnSnapshot(window.fbCollection(window.db, 'site_notifications'), (snap) => {
@@ -1104,8 +1043,6 @@ let isApplyingCoupon = false;
 let appliedCoupon = null;
 let discountAmount = 0;
 let wishlistSortMode = 'added';
-let sizeChartUnit = 'cm';
-let currentSizeChartCategory = 'default';
 let faqFilterCategory = 'all';
 let openFAQIndex = null;
 let currentGalleryImages = [];
@@ -2119,7 +2056,6 @@ window.openProductDetails = function(productId) {
         sizeHtml = `<div class="option-label">📏 Size <span class="selected-info" id="size-info"></span></div><div class="size-options-box" id="size-options-box">`;
         product.sizes.forEach(size => { sizeHtml += `<button type="button" class="size-btn" data-size="${size}" onclick="selectSize('${size}')">${size}</button>`; });
         sizeHtml += `</div>`;
-        sizeHtml += `<button type="button" class="size-guide-btn" onclick="event.stopPropagation(); openSizeChart('${product.category}')"><i class="fas fa-ruler-combined"></i> 📏 Size Guide</button>`;
     }
     let colorHtml = '';
     if (hasColors) {
@@ -2424,55 +2360,6 @@ function renderRelatedProducts(productId) {
     return html;
 }
 
-function getSizeChartData(category) {
-    const charts = window.sizeChartsCache || {};
-    return charts[category] || charts['default'] || { title: 'Size Guide', rows: [] };
-}
-function cmToInch(cm) { return (cm / 2.54).toFixed(1); }
-function formatMeasure(cm) { return sizeChartUnit === 'inch' ? cmToInch(cm) + '"' : cm + ' cm'; }
-
-window.openSizeChart = function(category) {
-    currentSizeChartCategory = category || 'default';
-    const data = getSizeChartData(currentSizeChartCategory);
-    document.getElementById('size-chart-title').textContent = data.title || 'Size Guide';
-    renderSizeChartTable();
-    document.getElementById('size-chart-modal').classList.add('active');
-    document.body.style.overflow = 'hidden';
-};
-window.closeSizeChart = function(event) {
-    if (event && event.target !== event.currentTarget) return;
-    document.getElementById('size-chart-modal').classList.remove('active');
-    document.body.style.overflow = '';
-};
-window.switchSizeUnit = function(unit) {
-    sizeChartUnit = unit;
-    document.querySelectorAll('.size-unit-btn').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-unit') === unit));
-    renderSizeChartTable();
-};
-function renderSizeChartTable() {
-    const data = getSizeChartData(currentSizeChartCategory);
-    const table = document.getElementById('size-chart-table');
-    if (!table) return;
-    const isHijab = currentSizeChartCategory === 'Hijab Collection';
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    if (rows.length === 0) { table.innerHTML = '<tbody><tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">কোনো size data নেই।</td></tr></tbody>'; return; }
-    let html = '<thead><tr><th>সাইজ</th>';
-    if (!isHijab) { html += '<th>বুক</th><th>কোমর</th>'; }
-    html += '<th>লম্বা</th>';
-    if (!isHijab) { html += '<th>কাঁধ</th><th>হাতা</th>'; }
-    html += '</tr></thead><tbody>';
-    rows.forEach(row => {
-        html += '<tr>';
-        html += `<td>${row.size || '—'}</td>`;
-        if (!isHijab) { html += `<td>${row.chest ? formatMeasure(row.chest) : '—'}</td><td>${row.waist ? formatMeasure(row.waist) : '—'}</td>`; }
-        html += `<td>${row.length ? formatMeasure(row.length) : '—'}</td>`;
-        if (!isHijab) { html += `<td>${row.shoulder ? formatMeasure(row.shoulder) : '—'}</td><td>${row.sleeve ? formatMeasure(row.sleeve) : '—'}</td>`; }
-        html += '</tr>';
-    });
-    html += '</tbody>';
-    table.innerHTML = html;
-}
-
 function generateOrderId() {
     const now = new Date();
     const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
@@ -2568,7 +2455,7 @@ function handleInitialURL() {
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { window.closeMiniCart(); window.closeShareModal(); window.closeImageModal(); window.closeSizeChart(); window.closeVideoModal(); }
+    if (e.key === 'Escape') { window.closeMiniCart(); window.closeShareModal(); window.closeImageModal(); window.closeVideoModal(); }
 });
 
 window.addEventListener('DOMContentLoaded', function() {
